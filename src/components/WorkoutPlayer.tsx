@@ -54,10 +54,57 @@ export default function WorkoutPlayer({
   // Track the total expected seconds for progress calculation (Aerobic)
   const totalPlannedSeconds = chunks.reduce((sum, c) => sum + c.durationMinutes * 60, 0);
 
-  // Initialize first chunk timer
+  // References for tracking background/drift transitions and keep-awake loop
+  const lastTickRef = useRef<number>(Date.now());
+  const lastAnnouncedChunkIndexRef = useRef<number>(-1);
+  const lastBeepRemainingRef = useRef<number>(-1);
+  const silentAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Background audio keep-awake loop to prevent background sleep
+  useEffect(() => {
+    // 1-second ultra-compressed silent MP3 base64
+    const SILENT_MP3_B64 = "data:audio/mp3;base64,SUQzBAAAAAABEVRYWFgAAAASAAADbWFqb3JfYnJhbmQAbXA0MgBUWFhYAAAAEgAAA21pbm9yX3ZlcnNpb24AMABUWFhYAAAAHAAAA2NvbXBhdGlibGVfYnJhbmRzAGlzb21tcDQyAFRFTkMaaaaVbGFtZSBNVDNsaWIAdXNpbmcAI0ZpcnN0IGZyYW1lIGFzIHNpbGVuY2UAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//MUxAAAAAACbAIACAAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/8UxAYAAAAAkAIAEAAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    const audio = new Audio(SILENT_MP3_B64);
+    audio.loop = true;
+    audio.volume = 0.01;
+    silentAudioRef.current = audio;
+
+    if (isPlaying && splashCountdown === null && !isCompleted) {
+      audio.play().catch(err => {
+        console.log("Autoplay of silent keep-awake audio deferred until user gesture:", err);
+      });
+    }
+
+    return () => {
+      if (silentAudioRef.current) {
+        silentAudioRef.current.pause();
+        silentAudioRef.current = null;
+      }
+    };
+  }, []);
+
+  // Sync active play state with keep-awake loop
+  useEffect(() => {
+    if (silentAudioRef.current) {
+      if (isPlaying && splashCountdown === null && !isCompleted) {
+        silentAudioRef.current.play().catch(err => {
+          console.log("Could not trigger silent loop:", err);
+        });
+      } else {
+        silentAudioRef.current.pause();
+      }
+    }
+  }, [isPlaying, splashCountdown, isCompleted]);
+
+  // Initialize first chunk timer and reset background tracking refs
   useEffect(() => {
     if (template.type === 'aerobic' && chunks.length > 0) {
+      setActiveChunkIndex(0);
       setTimeRemainingInChunk(chunks[0].durationMinutes * 60);
+      setTotalSecondsElapsed(0);
+      lastAnnouncedChunkIndexRef.current = -1;
+      lastBeepRemainingRef.current = -1;
+      lastTickRef.current = Date.now();
     }
   }, [template, chunks]);
 
@@ -112,54 +159,89 @@ export default function WorkoutPlayer({
     return () => clearTimeout(timer);
   }, [splashCountdown, template, chunks, isMuted]);
 
-  // Main countdown/up timer tick
+  // Keep update timestamp in sync when play status changes
+  useEffect(() => {
+    if (isPlaying && splashCountdown === null && !isCompleted) {
+      lastTickRef.current = Date.now();
+    }
+  }, [isPlaying, splashCountdown, isCompleted]);
+
+  // Main countdown/up timer tick with drift-compensation
   useEffect(() => {
     if (!isPlaying || isCompleted || splashCountdown !== null) return;
 
     const interval = setInterval(() => {
-      // Increment total elapsed time
-      setTotalSecondsElapsed(prev => prev + 1);
+      const now = Date.now();
+      const deltaMs = now - lastTickRef.current;
+      const deltaSec = Math.round(deltaMs / 1000);
 
-      if (template.type === 'aerobic') {
-        // Aerobic mode: countdown current chunk
-        setTimeRemainingInChunk(prev => {
-          const nextVal = prev - 1;
-
-          // Sound Beeps when 5, 4, 3, 2, 1 seconds remain for the NEXT block
-          if (nextVal <= 5 && nextVal > 0 && !isMuted) {
-            // Play a 880Hz beep
-            playBeep(880, 0.12);
-          }
-
-          if (nextVal === 0) {
-            // Transition to next chunk
-            if (activeChunkIndex < chunks.length - 1) {
-              // Play higher-pitch beep on switch
-              if (!isMuted) playBeep(1200, 0.3);
-              
-              const nextIdx = activeChunkIndex + 1;
-              setActiveChunkIndex(nextIdx);
-              announceChunk(chunks[nextIdx]);
-              return chunks[nextIdx].durationMinutes * 60;
-            } else {
-              // Workout Finished!
-              if (!isMuted) {
-                playBeep(1500, 0.4);
-                setTimeout(() => playBeep(1500, 0.4), 200);
-              }
-              setIsCompleted(true);
-              announceWorkoutComplete();
-              return 0;
-            }
-          }
-
-          return nextVal;
-        });
+      if (deltaSec > 0) {
+        lastTickRef.current = now;
+        setTotalSecondsElapsed(prev => prev + deltaSec);
       }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isPlaying, isCompleted, activeChunkIndex, chunks, template.type, isMuted, splashCountdown]);
+  }, [isPlaying, isCompleted, splashCountdown]);
+
+  // Unified state monitor for Aerobic workouts (Self-healing and drift-immune)
+  useEffect(() => {
+    if (template.type !== 'aerobic' || isCompleted || splashCountdown !== null) return;
+
+    let accumulatedSeconds = 0;
+    let foundIndex = 0;
+    let remaining = 0;
+    let completed = false;
+
+    for (let i = 0; i < chunks.length; i++) {
+      const chunkSec = chunks[i].durationMinutes * 60;
+      if (totalSecondsElapsed < accumulatedSeconds + chunkSec) {
+        foundIndex = i;
+        remaining = (accumulatedSeconds + chunkSec) - totalSecondsElapsed;
+        break;
+      }
+      accumulatedSeconds += chunkSec;
+      if (i === chunks.length - 1) {
+        completed = true;
+      }
+    }
+
+    if (completed) {
+      if (!isCompleted) {
+        if (!isMuted) {
+          playBeep(1500, 0.4);
+          setTimeout(() => playBeep(1500, 0.4), 200);
+        }
+        setIsCompleted(true);
+        announceWorkoutComplete();
+      }
+      return;
+    }
+
+    // Set remaining time in current chunk
+    setTimeRemainingInChunk(remaining);
+
+    // Beeps when 5, 4, 3, 2, 1 seconds remain for the next block
+    if (remaining <= 5 && remaining > 0 && !isMuted && lastBeepRemainingRef.current !== remaining) {
+      playBeep(880, 0.12);
+      lastBeepRemainingRef.current = remaining;
+    }
+
+    // Transition between chunks
+    if (foundIndex !== activeChunkIndex) {
+      if (!isMuted && activeChunkIndex !== undefined) {
+        playBeep(1200, 0.3);
+      }
+      setActiveChunkIndex(foundIndex);
+    }
+
+    // Voice announcement when entering a new chunk
+    if (foundIndex !== lastAnnouncedChunkIndexRef.current) {
+      announceChunk(chunks[foundIndex]);
+      lastAnnouncedChunkIndexRef.current = foundIndex;
+    }
+
+  }, [totalSecondsElapsed, chunks, template.type, isCompleted, splashCountdown, isMuted, activeChunkIndex]);
 
   // Handle Strength series completion
   const handleNextSet = () => {
