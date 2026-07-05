@@ -1,0 +1,6 @@
+{
+  "name": "AeroProgress - Registro e Treino Aeróbico",
+  "description": "Aplicativo para registrar atividades físicas, monitorar o progresso com gráficos intuitivos, configurar treinos aeróbicos intervalados com timer interativo e bips sonoros, e exportar relatórios em PDF.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

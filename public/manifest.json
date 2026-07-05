@@ -1,0 +1,25 @@
+{
+  "short_name": "AeroProgress",
+  "name": "AeroProgress - Registro e Treino Aeróbico",
+  "description": "Aplicativo para registrar atividades físicas, monitorar o progresso com gráficos intuitivos, configurar treinos aeróbicos intervalados com timer interativo e bips sonoros, e exportar relatórios em PDF.",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#0A0A0C",
+  "theme_color": "#0A0A0C",
+  "display": "standalone",
+  "orientation": "portrait",
+  "categories": ["sports", "fitness", "health"]
+}
