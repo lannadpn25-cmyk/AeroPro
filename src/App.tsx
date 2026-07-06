@@ -427,6 +427,17 @@ export default function App() {
     await dbSaveTemplate(updatedTemplate);
   };
 
+  const handleReorderTemplates = async (newTemplates: WorkoutTemplate[]) => {
+    const ordered = newTemplates.map((t, idx) => ({ ...t, order: idx }));
+    setTemplates(ordered);
+    localStorage.setItem('aeroprogress_templates', JSON.stringify(ordered));
+    try {
+      await Promise.all(ordered.map(t => dbSaveTemplate(t)));
+    } catch (e) {
+      console.error("Failed to sync reordered templates to cloud:", e);
+    }
+  };
+
   const handleStartWorkout = (template: WorkoutTemplate, music: boolean, voice: boolean) => {
     setMusicMode(music);
     setVoiceMode(voice);
@@ -481,6 +492,18 @@ export default function App() {
   const handleViewTemplateHistory = (templateId: string) => {
     setActiveTab('historico');
   };
+
+  // Calculate current week statistics for header (last 7 days)
+  const getWeeklyMinutes = () => {
+    const now = new Date();
+    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const weeklyWorkouts = completedWorkouts.filter(w => {
+      const wDate = new Date(w.date);
+      return wDate >= oneWeekAgo;
+    });
+    return weeklyWorkouts.reduce((sum, w) => sum + w.actualDurationMinutes, 0);
+  };
+  const weeklyMinutes = getWeeklyMinutes();
 
   if (isLoadingCloud) {
     return (
@@ -604,9 +627,15 @@ export default function App() {
                 className="text-xs bg-[#151518] border border-white/10 text-white font-mono px-3 py-1.5 rounded-lg flex items-center gap-1.5 hover:bg-white/5 hover:border-[#CCFF00]/50 transition cursor-pointer select-none text-left"
                 title="Ajustar metas semanais"
               >
-                <Award className="w-3.5 h-3.5 text-[#CCFF00]" />
-                <span className="opacity-50 font-sans text-[10px] tracking-wider uppercase">META:</span>
-                <span className="text-[#CCFF00] font-bold">{weeklyGoals.targetMinutes} MIN</span>
+                <Award className="w-3.5 h-3.5 text-[#CCFF00] shrink-0" />
+                {/* Mobile mode (only completed/total) */}
+                <span className="text-[#CCFF00] font-black sm:hidden">
+                  {weeklyMinutes}/{weeklyGoals.targetMinutes}
+                </span>
+                {/* Laptop/Desktop mode (completed/total MIN) */}
+                <span className="text-[#CCFF00] font-bold hidden sm:inline">
+                  {weeklyMinutes} / {weeklyGoals.targetMinutes}MIN
+                </span>
               </button>
             </div>
           </div>
@@ -633,7 +662,7 @@ export default function App() {
             {activeTab === 'exercicio' && (
               <WorkoutList
                 activities={activities}
-                templates={templates}
+                templates={[...templates].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))}
                 onAddActivity={handleAddActivity}
                 onEditActivity={handleEditActivity}
                 onDeleteActivity={handleDeleteActivity}
@@ -642,6 +671,8 @@ export default function App() {
                 onDeleteTemplate={handleDeleteTemplate}
                 onStartWorkout={handleStartWorkout}
                 onViewTemplateHistory={handleViewTemplateHistory}
+                onReorderTemplates={handleReorderTemplates}
+                completedWorkouts={completedWorkouts}
               />
             )}
 

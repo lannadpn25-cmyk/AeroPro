@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { 
-  Activity, WorkoutTemplate, WorkoutChunk, StrengthExercise, ActivityType 
+  Activity, WorkoutTemplate, WorkoutChunk, StrengthExercise, ActivityType, CompletedWorkout 
 } from '../types';
 import { 
   Plus, Play, Trash2, Milestone, Timer, ChevronRight, Check, Sparkles, Music, 
@@ -19,6 +19,8 @@ interface WorkoutListProps {
   onDeleteTemplate: (id: string) => void;
   onStartWorkout: (template: WorkoutTemplate, musicMode: boolean, voiceMode: boolean) => void;
   onViewTemplateHistory: (templateId: string) => void;
+  onReorderTemplates: (templates: WorkoutTemplate[]) => void;
+  completedWorkouts?: CompletedWorkout[];
 }
 
 // Map icon name to component helper
@@ -47,7 +49,9 @@ export default function WorkoutList({
   onEditTemplate,
   onDeleteTemplate,
   onStartWorkout,
-  onViewTemplateHistory
+  onViewTemplateHistory,
+  onReorderTemplates,
+  completedWorkouts = []
 }: WorkoutListProps) {
   // Navigation states for creating
   const [viewState, setViewState] = useState<'list' | 'create-activity' | 'create-template'>('list');
@@ -103,6 +107,9 @@ export default function WorkoutList({
   const [editExWeight, setEditExWeight] = useState(10);
   const [draggedExIndex, setDraggedExIndex] = useState<number | null>(null);
 
+  // Drag-and-drop states for workout templates
+  const [draggedTemplateIndex, setDraggedTemplateIndex] = useState<number | null>(null);
+
   // Helper handlers for Aerobic Chunks
   const handleStartEditChunk = (chunk: WorkoutChunk) => {
     setEditingChunkId(chunk.id);
@@ -148,6 +155,33 @@ export default function WorkoutList({
     items.splice(index, 0, draggedItem);
     setChunks(items);
     setDraggedChunkIndex(null);
+  };
+
+  // Helper handlers for Workout Templates Drag and Drop
+  const handleTemplateDragStart = (e: React.DragEvent, index: number) => {
+    // Only trigger drag if we are clicking on an element that is safe to drag (not buttons, inputs, etc.)
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('input') || target.closest('select') || target.closest('textarea')) {
+      e.preventDefault();
+      return;
+    }
+    setDraggedTemplateIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleTemplateDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleTemplateDrop = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedTemplateIndex === null) return;
+    const items = [...templates];
+    const draggedItem = items[draggedTemplateIndex];
+    items.splice(draggedTemplateIndex, 1);
+    items.splice(index, 0, draggedItem);
+    onReorderTemplates(items);
+    setDraggedTemplateIndex(null);
   };
 
   // Helper handlers for Strength Exercises
@@ -427,25 +461,35 @@ export default function WorkoutList({
                 <p className="text-white/40 text-xs uppercase font-mono tracking-wider">Nenhum treino cadastrado. Crie um novo treino para começar!</p>
               </div>
             ) : (
-              templates.map(template => {
+              templates.map((template, index) => {
                 const activity = activities.find(a => a.id === template.activityId) || {
                   name: 'Atividade Geral',
                   icon: 'Activity',
                   description: ''
                 };
-                
-                const isMusicActive = musicConfigs[template.id] ?? true;
+                           const isMusicActive = musicConfigs[template.id] ?? true;
                 const isVoiceActive = voiceConfigs[template.id] ?? true;
+                const completedCount = completedWorkouts.filter(cw => cw.templateId === template.id).length;
  
                 return (
                   <div 
                     key={template.id} 
-                    className="bg-[#151518] border border-white/5 rounded-2xl p-5 hover:border-[#CCFF00]/40 transition duration-300 relative overflow-hidden group shadow-md"
+                    draggable
+                    onDragStart={(e) => handleTemplateDragStart(e, index)}
+                    onDragOver={handleTemplateDragOver}
+                    onDrop={(e) => handleTemplateDrop(e, index)}
+                    className={`bg-[#151518] border rounded-2xl p-5 hover:border-[#CCFF00]/40 transition duration-300 relative overflow-hidden group shadow-md cursor-grab active:cursor-grabbing ${
+                      draggedTemplateIndex === index ? 'opacity-40 border-dashed border-[#CCFF00]/60 bg-[#CCFF00]/5' : 'border-white/5'
+                    }`}
                     id={`workout-card-${template.id}`}
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       {/* Left Block: Icon & Info with padding to avoid overlapping the absolute action buttons */}
-                      <div className="flex gap-4 items-center pr-16 sm:pr-0 flex-1 min-w-0">
+                      <div className="flex gap-3 items-center pr-16 sm:pr-0 flex-1 min-w-0">
+                        {/* Grip vertical icon handle */}
+                        <div className="text-white/20 group-hover:text-[#CCFF00]/40 transition shrink-0">
+                          <GripVertical className="w-4 h-4" />
+                        </div>
                         <div className="p-3 bg-white/5 border border-white/10 text-[#CCFF00] rounded-xl shrink-0">
                           <ActivityIcon name={activity.icon} className="w-6 h-6 sm:w-7 sm:h-7" />
                         </div>
@@ -470,6 +514,14 @@ export default function WorkoutList({
                             </p>
                           )}
                         </div>
+
+                        {/* Completed count badge inside the card in the empty space highlighted by user */}
+                        {completedCount > 0 && (
+                          <div className="flex flex-col items-center justify-center px-2.5 py-1 sm:px-3 sm:py-1.5 bg-[#CCFF00]/5 border border-[#CCFF00]/15 rounded-xl shrink-0 font-mono text-center mr-1 sm:mr-3" title={`${completedCount} sessões concluídas`}>
+                            <span className="text-[#CCFF00] text-sm sm:text-base font-black leading-none">{completedCount}</span>
+                            <span className="text-[7px] sm:text-[8px] text-white/50 tracking-wider font-bold uppercase mt-0.5">SESSÕES</span>
+                          </div>
+                        )}
                       </div>
  
                       {/* Action buttons (Edit/Duplicate/Delete) placed absolutely in the top corner for perfect layout control */}

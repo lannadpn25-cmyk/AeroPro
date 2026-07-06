@@ -33,6 +33,7 @@ export interface WorkoutTemplate {
   targetValue: number; // desired total minutes or total kms
   chunks?: WorkoutChunk[]; // for aerobic
   strengthExercises?: StrengthExercise[]; // for strength
+  order?: number;
 }
 
 export interface CompletedWorkout {
