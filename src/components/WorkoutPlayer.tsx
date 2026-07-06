@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { WorkoutTemplate, WorkoutChunk, StrengthExercise, CompletedWorkout } from '../types';
-import { playBeep } from '../utils/audio';
+import { playBeep, playTransitionChime, playSuccessChime } from '../utils/audio';
 import { 
   Play, Pause, Square, ChevronRight, Activity, Heart, Milestone, Volume2, 
   VolumeX, CheckCircle, Flame, Award, Clock, Sparkles, Send 
@@ -97,6 +97,48 @@ export default function WorkoutPlayer({
       }
     }
   }, [isPlaying, splashCountdown, isCompleted]);
+
+  // MediaSession API setup to keep the browser tab alive and update lock screen controls
+  useEffect(() => {
+    if ('mediaSession' in navigator) {
+      if (isPlaying && splashCountdown === null && !isCompleted) {
+        navigator.mediaSession.playbackState = 'playing';
+        
+        let title = template.name;
+        let artist = 'PowerFit Player';
+        if (template.type === 'aerobic' && currentChunk) {
+          title = `${currentChunk.name} (${currentChunk.speedKmh} km/h)`;
+          artist = `Treino: ${template.name}`;
+        } else if (template.type === 'strength') {
+          const exercises = template.strengthExercises || [];
+          const currentEx = exercises[activeExerciseIndex];
+          if (currentEx) {
+            title = `${currentEx.name} (Série ${currentSet}/${currentEx.series})`;
+            artist = `Força: ${template.name}`;
+          }
+        }
+
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: title,
+          artist: artist,
+          album: 'PowerFit App',
+          artwork: [
+            { src: 'https://cdn-icons-png.flaticon.com/512/2964/2964514.png', sizes: '512x512', type: 'image/png' }
+          ]
+        });
+
+        // Set control handlers for lockscren audio controls
+        try {
+          navigator.mediaSession.setActionHandler('play', () => setIsPlaying(true));
+          navigator.mediaSession.setActionHandler('pause', () => setIsPlaying(false));
+        } catch (error) {
+          console.log("MediaSession action handler error:", error);
+        }
+      } else {
+        navigator.mediaSession.playbackState = 'paused';
+      }
+    }
+  }, [isPlaying, splashCountdown, isCompleted, activeChunkIndex, activeExerciseIndex, currentSet, template, currentChunk]);
 
   // Initialize first chunk timer and reset background tracking refs
   useEffect(() => {
@@ -251,6 +293,11 @@ export default function WorkoutPlayer({
       if (deltaSec > 0) {
         lastTickRef.current = now;
         setTotalSecondsElapsed(prev => prev + deltaSec);
+        
+        // Safety unfreeze for browser speech synthesis in the background
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.resume();
+        }
       }
     }, 1000);
 
@@ -282,8 +329,7 @@ export default function WorkoutPlayer({
     if (completed) {
       if (!isPlannedFinished) {
         if (!isMuted) {
-          playBeep(1500, 0.4);
-          setTimeout(() => playBeep(1500, 0.4), 200);
+          playSuccessChime();
         }
         setIsPlannedFinished(true);
         announceWorkoutComplete();
@@ -304,7 +350,7 @@ export default function WorkoutPlayer({
     // Transition between chunks
     if (foundIndex !== activeChunkIndex) {
       if (!isMuted && activeChunkIndex !== undefined) {
-        playBeep(1200, 0.3);
+        playTransitionChime();
       }
       setActiveChunkIndex(foundIndex);
     }
@@ -333,13 +379,12 @@ export default function WorkoutPlayer({
       if (activeExerciseIndex < exercises.length - 1) {
         setActiveExerciseIndex(prev => prev + 1);
         setCurrentSet(1);
-        if (!isMuted) playBeep(1200, 0.25);
+        if (!isMuted) playTransitionChime();
       } else {
         // Last exercise and last set done!
         if (!isPlannedFinished) {
           if (!isMuted) {
-            playBeep(1500, 0.4);
-            setTimeout(() => playBeep(1500, 0.4), 200);
+            playSuccessChime();
           }
           setIsPlannedFinished(true);
           announceWorkoutComplete();
