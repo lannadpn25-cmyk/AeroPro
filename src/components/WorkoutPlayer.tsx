@@ -948,29 +948,29 @@ export default function WorkoutPlayer({
 
       {/* Splash Countdown Modal */}
       {splashCountdown !== null && (
-        <div className="fixed inset-0 bg-black/95 backdrop-blur-md flex flex-col items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="text-center space-y-6 max-w-sm w-full">
-            <div className="space-y-2">
-              <span className="text-[#CCFF00] text-[10px] font-black tracking-widest uppercase font-mono block animate-pulse">
+        <div className="fixed inset-0 h-screen w-screen bg-black/95 backdrop-blur-md flex flex-col items-center justify-center p-6 z-50 animate-fade-in">
+          <div className="text-center space-y-8 max-w-sm w-full flex flex-col items-center justify-center h-full">
+            <div className="space-y-3">
+              <span className="text-[#CCFF00] text-xs font-black tracking-widest uppercase font-mono block animate-pulse">
                 PREPARE-SE PARA TREINAR
               </span>
-              <h3 className="text-xl font-black text-white uppercase tracking-tight font-display">
+              <h3 className="text-2xl font-black text-white uppercase tracking-tight font-display">
                 {template.name}
               </h3>
             </div>
 
             {/* Giant Countdown Number with Pulse animation */}
-            <div className="relative flex items-center justify-center w-44 h-44 mx-auto">
+            <div className="relative flex items-center justify-center w-52 h-52">
               {/* Outer pulsing ring */}
               <div className="absolute inset-0 border-2 border-[#CCFF00]/20 rounded-full animate-ping" />
-              <div className="absolute inset-2 border border-[#CCFF00]/40 rounded-full" />
+              <div className="absolute inset-3 border border-[#CCFF00]/40 rounded-full" />
               
-              <span className="text-7xl font-black text-[#CCFF00] font-mono tracking-tighter drop-shadow-[0_0_15px_rgba(204,255,0,0.5)]">
+              <span className="text-8xl font-black text-[#CCFF00] font-mono tracking-tighter drop-shadow-[0_0_20px_rgba(204,255,0,0.6)]">
                 {splashCountdown === 0 ? 'VAI!' : splashCountdown}
               </span>
             </div>
 
-            <p className="text-white/40 text-[10px] font-bold uppercase tracking-wider">
+            <p className="text-white/40 text-xs font-bold uppercase tracking-widest font-mono">
               {template.type === 'aerobic' ? 'Iniciando com aquecimento ou bloco inicial' : 'Iniciando primeira série do exercício'}
             </p>
           </div>

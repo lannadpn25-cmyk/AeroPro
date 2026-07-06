@@ -13,7 +13,6 @@ interface SessionHistoryProps {
 }
 
 export default function SessionHistory({ completedWorkouts, onDeleteSession, onUpdateSession, activities }: SessionHistoryProps) {
-  const [searchTerm, setSearchTerm] = useState('');
   const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null);
   const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null);
 
@@ -35,12 +34,7 @@ export default function SessionHistory({ completedWorkouts, onDeleteSession, onU
 
   // Filter sessions
   const filteredSessions = [...completedWorkouts]
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .filter(session => {
-      const matchSearch = session.workoutName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          session.activityName.toLowerCase().includes(searchTerm.toLowerCase());
-      return matchSearch;
-    });
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const toggleExpand = (id: string) => {
     setExpandedSessionId(prev => (prev === id ? null : id));
@@ -63,20 +57,6 @@ export default function SessionHistory({ completedWorkouts, onDeleteSession, onU
       {/* Title */}
       <div className="space-y-1">
         <h1 className="text-3xl font-black text-white uppercase font-display tracking-tight italic">Histórico de Treinos</h1>
-      </div>
-
-      {/* Filters bar */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3.5 top-3.5 text-white/40 w-4 h-4" />
-          <input
-            type="text"
-            placeholder="Pesquisar por nome ou tipo de treino..."
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            className="w-full bg-[#151518] border border-white/5 text-sm text-white rounded-xl pl-10 pr-4 py-3 focus:outline-none focus:border-[#CCFF00]/50 font-mono"
-          />
-        </div>
       </div>
 
       {/* History List */}
