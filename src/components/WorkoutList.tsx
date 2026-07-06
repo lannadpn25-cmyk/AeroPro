@@ -486,10 +486,6 @@ export default function WorkoutList({
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       {/* Left Block: Icon & Info with padding to avoid overlapping the absolute action buttons */}
                       <div className="flex gap-3 items-center pr-16 sm:pr-0 flex-1 min-w-0">
-                        {/* Grip vertical icon handle */}
-                        <div className="text-white/20 group-hover:text-[#CCFF00]/40 transition shrink-0">
-                          <GripVertical className="w-4 h-4" />
-                        </div>
                         <div className="p-3 bg-white/5 border border-white/10 text-[#CCFF00] rounded-xl shrink-0">
                           <ActivityIcon name={activity.icon} className="w-6 h-6 sm:w-7 sm:h-7" />
                         </div>
@@ -517,7 +513,7 @@ export default function WorkoutList({
 
                         {/* Completed count badge inside the card in the empty space highlighted by user */}
                         {completedCount > 0 && (
-                          <div className="flex flex-col items-center justify-center px-2.5 py-1 sm:px-3 sm:py-1.5 bg-[#CCFF00]/5 border border-[#CCFF00]/15 rounded-xl shrink-0 font-mono text-center mr-1 sm:mr-3" title={`${completedCount} sessões concluídas`}>
+                          <div className="flex flex-col items-center justify-center px-2.5 py-1 sm:px-3 sm:py-1.5 bg-[#CCFF00]/5 border border-[#CCFF00]/15 rounded-xl shrink-0 font-mono text-center ml-auto mr-1 sm:mr-3" title={`${completedCount} sessões concluídas`}>
                             <span className="text-[#CCFF00] text-sm sm:text-base font-black leading-none">{completedCount}</span>
                             <span className="text-[7px] sm:text-[8px] text-white/50 tracking-wider font-bold uppercase mt-0.5">SESSÕES</span>
                           </div>
