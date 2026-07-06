@@ -32,6 +32,54 @@ export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 // Initialize Auth
 export const auth = getAuth(app);
 
+
+export enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+export interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  }
+}
+
+export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData?.map(provider => ({
+        providerId: provider.providerId,
+        email: provider.email,
+      })) || []
+    },
+    operationType,
+    path
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
+
 /**
  * Gets or generates a unique user identifier for cloud data isolation
  */
@@ -58,15 +106,17 @@ const COMPLETED_COLL = 'completedWorkouts';
  * Fetches the user's weekly goals from Firestore
  */
 export async function dbFetchWeeklyGoals(): Promise<any | null> {
+  const uid = getOrCreateUserId();
+  const path = `${GOALS_COLL}/${uid}`;
   try {
-    const uid = getOrCreateUserId();
     const docRef = doc(db, GOALS_COLL, uid);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
       return docSnap.data();
     }
+    return null;
   } catch (error) {
-    console.error("Error fetching weekly goals from Firestore:", error);
+    handleFirestoreError(error, OperationType.GET, path);
   }
   return null;
 }
@@ -75,8 +125,9 @@ export async function dbFetchWeeklyGoals(): Promise<any | null> {
  * Saves/updates the user's weekly goals in Firestore
  */
 export async function dbSaveWeeklyGoals(goals: any): Promise<void> {
+  const uid = getOrCreateUserId();
+  const path = `${GOALS_COLL}/${uid}`;
   try {
-    const uid = getOrCreateUserId();
     const docRef = doc(db, GOALS_COLL, uid);
     await setDoc(docRef, {
       ...goals,
@@ -84,7 +135,7 @@ export async function dbSaveWeeklyGoals(goals: any): Promise<void> {
       updatedAt: new Date().toISOString()
     });
   } catch (error) {
-    console.error("Error saving weekly goals to Firestore:", error);
+    handleFirestoreError(error, OperationType.WRITE, path);
   }
 }
 
@@ -92,8 +143,9 @@ export async function dbSaveWeeklyGoals(goals: any): Promise<void> {
  * Fetches activities from Firestore
  */
 export async function dbFetchActivities(): Promise<any[] | null> {
+  const uid = getOrCreateUserId();
+  const path = `${ACTIVITIES_COLL} (list)`;
   try {
-    const uid = getOrCreateUserId();
     const q = query(collection(db, ACTIVITIES_COLL), where('userId', '==', uid));
     const querySnapshot = await getDocs(q);
     const list: any[] = [];
@@ -103,7 +155,7 @@ export async function dbFetchActivities(): Promise<any[] | null> {
     });
     return list.length > 0 ? list : null;
   } catch (error) {
-    console.error("Error fetching activities from Firestore:", error);
+    handleFirestoreError(error, OperationType.GET, path);
   }
   return null;
 }
@@ -112,9 +164,10 @@ export async function dbFetchActivities(): Promise<any[] | null> {
  * Saves a single activity to Firestore
  */
 export async function dbSaveActivity(activity: any): Promise<void> {
+  const uid = getOrCreateUserId();
+  const docId = `${uid}_${activity.id}`;
+  const path = `${ACTIVITIES_COLL}/${docId}`;
   try {
-    const uid = getOrCreateUserId();
-    const docId = `${uid}_${activity.id}`;
     const docRef = doc(db, ACTIVITIES_COLL, docId);
     await setDoc(docRef, {
       ...activity,
@@ -122,7 +175,7 @@ export async function dbSaveActivity(activity: any): Promise<void> {
       updatedAt: new Date().toISOString()
     });
   } catch (error) {
-    console.error("Error saving activity to Firestore:", error);
+    handleFirestoreError(error, OperationType.WRITE, path);
   }
 }
 
@@ -130,13 +183,14 @@ export async function dbSaveActivity(activity: any): Promise<void> {
  * Deletes an activity from Firestore
  */
 export async function dbDeleteActivity(activityId: string): Promise<void> {
+  const uid = getOrCreateUserId();
+  const docId = `${uid}_${activityId}`;
+  const path = `${ACTIVITIES_COLL}/${docId}`;
   try {
-    const uid = getOrCreateUserId();
-    const docId = `${uid}_${activityId}`;
     const docRef = doc(db, ACTIVITIES_COLL, docId);
     await deleteDoc(docRef);
   } catch (error) {
-    console.error("Error deleting activity from Firestore:", error);
+    handleFirestoreError(error, OperationType.DELETE, path);
   }
 }
 
@@ -144,8 +198,9 @@ export async function dbDeleteActivity(activityId: string): Promise<void> {
  * Fetches workout templates from Firestore
  */
 export async function dbFetchTemplates(): Promise<any[] | null> {
+  const uid = getOrCreateUserId();
+  const path = `${TEMPLATES_COLL} (list)`;
   try {
-    const uid = getOrCreateUserId();
     const q = query(collection(db, TEMPLATES_COLL), where('userId', '==', uid));
     const querySnapshot = await getDocs(q);
     const list: any[] = [];
@@ -155,7 +210,7 @@ export async function dbFetchTemplates(): Promise<any[] | null> {
     });
     return list.length > 0 ? list : null;
   } catch (error) {
-    console.error("Error fetching templates from Firestore:", error);
+    handleFirestoreError(error, OperationType.GET, path);
   }
   return null;
 }
@@ -164,9 +219,10 @@ export async function dbFetchTemplates(): Promise<any[] | null> {
  * Saves a workout template to Firestore
  */
 export async function dbSaveTemplate(template: any): Promise<void> {
+  const uid = getOrCreateUserId();
+  const docId = `${uid}_${template.id}`;
+  const path = `${TEMPLATES_COLL}/${docId}`;
   try {
-    const uid = getOrCreateUserId();
-    const docId = `${uid}_${template.id}`;
     const docRef = doc(db, TEMPLATES_COLL, docId);
     await setDoc(docRef, {
       ...template,
@@ -174,7 +230,7 @@ export async function dbSaveTemplate(template: any): Promise<void> {
       updatedAt: new Date().toISOString()
     });
   } catch (error) {
-    console.error("Error saving template to Firestore:", error);
+    handleFirestoreError(error, OperationType.WRITE, path);
   }
 }
 
@@ -182,13 +238,14 @@ export async function dbSaveTemplate(template: any): Promise<void> {
  * Deletes a workout template from Firestore
  */
 export async function dbDeleteTemplate(templateId: string): Promise<void> {
+  const uid = getOrCreateUserId();
+  const docId = `${uid}_${templateId}`;
+  const path = `${TEMPLATES_COLL}/${docId}`;
   try {
-    const uid = getOrCreateUserId();
-    const docId = `${uid}_${templateId}`;
     const docRef = doc(db, TEMPLATES_COLL, docId);
     await deleteDoc(docRef);
   } catch (error) {
-    console.error("Error deleting template from Firestore:", error);
+    handleFirestoreError(error, OperationType.DELETE, path);
   }
 }
 
@@ -196,8 +253,9 @@ export async function dbDeleteTemplate(templateId: string): Promise<void> {
  * Fetches completed workouts from Firestore
  */
 export async function dbFetchCompletedWorkouts(): Promise<any[] | null> {
+  const uid = getOrCreateUserId();
+  const path = `${COMPLETED_COLL} (list)`;
   try {
-    const uid = getOrCreateUserId();
     const q = query(collection(db, COMPLETED_COLL), where('userId', '==', uid));
     const querySnapshot = await getDocs(q);
     const list: any[] = [];
@@ -208,7 +266,7 @@ export async function dbFetchCompletedWorkouts(): Promise<any[] | null> {
     // Sort descending by date
     return list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   } catch (error) {
-    console.error("Error fetching completed workouts from Firestore:", error);
+    handleFirestoreError(error, OperationType.GET, path);
   }
   return null;
 }
@@ -217,9 +275,10 @@ export async function dbFetchCompletedWorkouts(): Promise<any[] | null> {
  * Saves a completed workout to Firestore
  */
 export async function dbSaveCompletedWorkout(workout: any): Promise<void> {
+  const uid = getOrCreateUserId();
+  const docId = `${uid}_${workout.id}`;
+  const path = `${COMPLETED_COLL}/${docId}`;
   try {
-    const uid = getOrCreateUserId();
-    const docId = `${uid}_${workout.id}`;
     const docRef = doc(db, COMPLETED_COLL, docId);
     await setDoc(docRef, {
       ...workout,
@@ -227,7 +286,7 @@ export async function dbSaveCompletedWorkout(workout: any): Promise<void> {
       updatedAt: new Date().toISOString()
     });
   } catch (error) {
-    console.error("Error saving completed workout to Firestore:", error);
+    handleFirestoreError(error, OperationType.WRITE, path);
   }
 }
 
@@ -235,15 +294,17 @@ export async function dbSaveCompletedWorkout(workout: any): Promise<void> {
  * Deletes a completed workout from Firestore
  */
 export async function dbDeleteCompletedWorkout(workoutId: string): Promise<void> {
+  const uid = getOrCreateUserId();
+  const docId = `${uid}_${workoutId}`;
+  const path = `${COMPLETED_COLL}/${docId}`;
   try {
-    const uid = getOrCreateUserId();
-    const docId = `${uid}_${workoutId}`;
     const docRef = doc(db, COMPLETED_COLL, docId);
     await deleteDoc(docRef);
   } catch (error) {
-    console.error("Error deleting completed workout from Firestore:", error);
+    handleFirestoreError(error, OperationType.DELETE, path);
   }
 }
+
 
 /**
  * Migrates local app data to the logged-in user's cloud Firestore collections

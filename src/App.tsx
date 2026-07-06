@@ -21,7 +21,7 @@ import WorkoutPlayer from './components/WorkoutPlayer';
 import SessionHistory from './components/SessionHistory';
 import ReportView from './components/ReportView';
 import { 
-  TrendingUp, Calendar, Dumbbell, Printer, Heart, Award, Sparkles, Flame, Cloud, RefreshCw, LogIn, LogOut, User as UserIcon, X, ShieldCheck
+  TrendingUp, Calendar, Dumbbell, Printer, Heart, Award, Sparkles, Flame, Cloud, RefreshCw, LogIn, LogOut, User as UserIcon, X, ShieldCheck, CheckCircle2, AlertTriangle
 } from 'lucide-react';
 import {
   dbFetchWeeklyGoals,
@@ -70,6 +70,19 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(false);
   const [authSuccessMsg, setAuthSuccessMsg] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [showSyncModal, setShowSyncModal] = useState(false);
+  const [syncProgress, setSyncProgress] = useState<{
+    goals: 'idle' | 'loading' | 'success' | 'error';
+    activities: 'idle' | 'loading' | 'success' | 'error';
+    templates: 'idle' | 'loading' | 'success' | 'error';
+    completed: 'idle' | 'loading' | 'success' | 'error';
+  }>({
+    goals: 'idle',
+    activities: 'idle',
+    templates: 'idle',
+    completed: 'idle',
+  });
+  const [syncErrorDetails, setSyncErrorDetails] = useState<string | null>(null);
 
   // Helper for mock workouts
   const getDefaultCompletedWorkouts = (): CompletedWorkout[] => {
@@ -120,77 +133,100 @@ export default function App() {
     ];
   };
 
-  const loadUserData = async () => {
-    // 1. Fetch Weekly Goals
-    let finalGoals = DEFAULT_WEEKLY_GOALS;
-    const dbGoals = await dbFetchWeeklyGoals();
-    if (dbGoals) {
-      finalGoals = dbGoals;
-    } else {
-      const storedGoals = localStorage.getItem('aeroprogress_goals');
-      if (storedGoals) {
-        finalGoals = JSON.parse(storedGoals);
-      }
-      await dbSaveWeeklyGoals(finalGoals);
-    }
-    setWeeklyGoals(finalGoals);
-    localStorage.setItem('aeroprogress_goals', JSON.stringify(finalGoals));
-
-    // 2. Fetch Activities
-    let finalActivities = DEFAULT_ACTIVITIES;
-    const dbActivities = await dbFetchActivities();
-    if (dbActivities && dbActivities.length > 0) {
-      finalActivities = dbActivities;
-    } else {
-      const storedActivities = localStorage.getItem('aeroprogress_activities');
-      if (storedActivities) {
-        finalActivities = JSON.parse(storedActivities);
-      }
-      // Seed to Firebase
-      for (const act of finalActivities) {
-        await dbSaveActivity(act);
-      }
-    }
-    setActivities(finalActivities);
-    localStorage.setItem('aeroprogress_activities', JSON.stringify(finalActivities));
-
-    // 3. Fetch Templates
-    let finalTemplates = DEFAULT_TEMPLATES;
-    const dbTemplates = await dbFetchTemplates();
-    if (dbTemplates && dbTemplates.length > 0) {
-      finalTemplates = dbTemplates;
-    } else {
-      const storedTemplates = localStorage.getItem('aeroprogress_templates');
-      if (storedTemplates) {
-        finalTemplates = JSON.parse(storedTemplates);
-      }
-      // Seed to Firebase
-      for (const t of finalTemplates) {
-        await dbSaveTemplate(t);
-      }
-    }
-    setTemplates(finalTemplates);
-    localStorage.setItem('aeroprogress_templates', JSON.stringify(finalTemplates));
-
-    // 4. Fetch Completed Workouts
-    let finalCompleted: CompletedWorkout[] = [];
-    const dbCompleted = await dbFetchCompletedWorkouts();
-    if (dbCompleted && dbCompleted.length > 0) {
-      finalCompleted = dbCompleted;
-    } else {
-      const storedCompleted = localStorage.getItem('aeroprogress_completed');
-      if (storedCompleted) {
-        finalCompleted = JSON.parse(storedCompleted);
+  const loadUserData = async (onProgress?: (step: string, status: 'idle' | 'loading' | 'success' | 'error', details?: string) => void) => {
+    try {
+      // 1. Fetch Weekly Goals
+      if (onProgress) onProgress('goals', 'loading');
+      let finalGoals = DEFAULT_WEEKLY_GOALS;
+      const dbGoals = await dbFetchWeeklyGoals();
+      if (dbGoals) {
+        finalGoals = dbGoals;
       } else {
-        finalCompleted = getDefaultCompletedWorkouts();
+        const storedGoals = localStorage.getItem('aeroprogress_goals');
+        if (storedGoals) {
+          finalGoals = JSON.parse(storedGoals);
+        }
+        await dbSaveWeeklyGoals(finalGoals);
       }
-      // Seed to Firebase
-      for (const comp of finalCompleted) {
-        await dbSaveCompletedWorkout(comp);
+      setWeeklyGoals(finalGoals);
+      localStorage.setItem('aeroprogress_goals', JSON.stringify(finalGoals));
+      if (onProgress) onProgress('goals', 'success');
+
+      // 2. Fetch Activities
+      if (onProgress) onProgress('activities', 'loading');
+      let finalActivities = DEFAULT_ACTIVITIES;
+      const dbActivities = await dbFetchActivities();
+      if (dbActivities && dbActivities.length > 0) {
+        finalActivities = dbActivities;
+      } else {
+        const storedActivities = localStorage.getItem('aeroprogress_activities');
+        if (storedActivities) {
+          finalActivities = JSON.parse(storedActivities);
+        }
+        // Seed to Firebase
+        for (const act of finalActivities) {
+          await dbSaveActivity(act);
+        }
       }
+      setActivities(finalActivities);
+      localStorage.setItem('aeroprogress_activities', JSON.stringify(finalActivities));
+      if (onProgress) onProgress('activities', 'success');
+
+      // 3. Fetch Templates
+      if (onProgress) onProgress('templates', 'loading');
+      let finalTemplates = DEFAULT_TEMPLATES;
+      const dbTemplates = await dbFetchTemplates();
+      if (dbTemplates && dbTemplates.length > 0) {
+        finalTemplates = dbTemplates;
+      } else {
+        const storedTemplates = localStorage.getItem('aeroprogress_templates');
+        if (storedTemplates) {
+          finalTemplates = JSON.parse(storedTemplates);
+        }
+        // Seed to Firebase
+        for (const t of finalTemplates) {
+          await dbSaveTemplate(t);
+        }
+      }
+      setTemplates(finalTemplates);
+      localStorage.setItem('aeroprogress_templates', JSON.stringify(finalTemplates));
+      if (onProgress) onProgress('templates', 'success');
+
+      // 4. Fetch Completed Workouts
+      if (onProgress) onProgress('completed', 'loading');
+      let finalCompleted: CompletedWorkout[] = [];
+      const dbCompleted = await dbFetchCompletedWorkouts();
+      if (dbCompleted && dbCompleted.length > 0) {
+        finalCompleted = dbCompleted;
+      } else {
+        const storedCompleted = localStorage.getItem('aeroprogress_completed');
+        if (storedCompleted) {
+          finalCompleted = JSON.parse(storedCompleted);
+        } else {
+          finalCompleted = getDefaultCompletedWorkouts();
+        }
+        // Seed to Firebase
+        for (const comp of finalCompleted) {
+          await dbSaveCompletedWorkout(comp);
+        }
+      }
+      setCompletedWorkouts(finalCompleted);
+      localStorage.setItem('aeroprogress_completed', JSON.stringify(finalCompleted));
+      if (onProgress) onProgress('completed', 'success');
+    } catch (err: any) {
+      console.error("Error in loadUserData:", err);
+      let details = err instanceof Error ? err.message : String(err);
+      try {
+        const parsed = JSON.parse(details);
+        if (parsed && parsed.error) {
+          details = `Erro no Firestore [Operação: ${parsed.operationType.toUpperCase()}] no caminho: ${parsed.path}. Detalhes: ${parsed.error}`;
+        }
+      } catch (e) {
+        // ignore
+      }
+      if (onProgress) onProgress('error', 'error', details);
+      throw err;
     }
-    setCompletedWorkouts(finalCompleted);
-    localStorage.setItem('aeroprogress_completed', JSON.stringify(finalCompleted));
   };
 
   const fallbackToLocalStorage = () => {
@@ -527,8 +563,25 @@ export default function App() {
                   onClick={async () => {
                     if (isSyncing) return;
                     setIsSyncing(true);
+                    setSyncErrorDetails(null);
+                    setSyncProgress({
+                      goals: 'idle',
+                      activities: 'idle',
+                      templates: 'idle',
+                      completed: 'idle',
+                    });
+                    setShowSyncModal(true);
                     try {
-                      await loadUserData();
+                      await loadUserData((step, status, details) => {
+                        if (step === 'error') {
+                          setSyncErrorDetails(details || 'Erro desconhecido');
+                        } else {
+                          setSyncProgress(prev => ({
+                            ...prev,
+                            [step]: status
+                          }));
+                        }
+                      });
                     } catch (err) {
                       console.error("Sync error:", err);
                     } finally {
@@ -922,6 +975,133 @@ export default function App() {
               <p className="text-xs text-white/50 leading-relaxed font-sans">
                 Seu histórico de treinos e rotinas locais está sendo importado de forma segura para o seu novo perfil na nuvem. Por favor, aguarde alguns segundos.
               </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sync Progress Modal */}
+      {showSyncModal && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-[#121216] border border-white/10 rounded-2xl w-full max-w-md overflow-hidden relative shadow-2xl">
+            {/* Header */}
+            <div className="flex justify-between items-center p-5 border-b border-white/5">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 bg-[#CCFF00] rounded flex items-center justify-center">
+                  <RefreshCw className={`w-4.5 h-4.5 text-black ${isSyncing ? 'animate-spin' : ''}`} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black tracking-wider uppercase font-display text-white">
+                    Sincronização Cloud
+                  </h3>
+                  <p className="text-[10px] text-[#CCFF00] uppercase tracking-widest font-mono">
+                    {isSyncing ? 'Atualizando dados na nuvem...' : 'Sincronização Concluída'}
+                  </p>
+                </div>
+              </div>
+              {!isSyncing && (
+                <button
+                  onClick={() => setShowSyncModal(false)}
+                  className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Progress Body */}
+            <div className="p-5 space-y-5">
+              <div className="space-y-3">
+                {/* Step 1: Goals */}
+                <div className="flex items-center justify-between p-3.5 rounded-xl bg-black/25 border border-white/5">
+                  <div className="flex items-center gap-3">
+                    <div className="text-xs text-white/70 font-medium">🎯 Metas Semanais</div>
+                  </div>
+                  <div>
+                    {syncProgress.goals === 'loading' && <RefreshCw className="w-4 h-4 text-[#CCFF00] animate-spin" />}
+                    {syncProgress.goals === 'success' && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
+                    {syncProgress.goals === 'error' && <AlertTriangle className="w-4 h-4 text-red-400" />}
+                    {syncProgress.goals === 'idle' && <div className="w-3.5 h-3.5 rounded-full border-2 border-white/10" />}
+                  </div>
+                </div>
+
+                {/* Step 2: Activities */}
+                <div className="flex items-center justify-between p-3.5 rounded-xl bg-black/25 border border-white/5">
+                  <div className="flex items-center gap-3">
+                    <div className="text-xs text-white/70 font-medium">🏃 Atividades de Exercício</div>
+                  </div>
+                  <div>
+                    {syncProgress.activities === 'loading' && <RefreshCw className="w-4 h-4 text-[#CCFF00] animate-spin" />}
+                    {syncProgress.activities === 'success' && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
+                    {syncProgress.activities === 'error' && <AlertTriangle className="w-4 h-4 text-red-400" />}
+                    {syncProgress.activities === 'idle' && <div className="w-3.5 h-3.5 rounded-full border-2 border-white/10" />}
+                  </div>
+                </div>
+
+                {/* Step 3: Templates */}
+                <div className="flex items-center justify-between p-3.5 rounded-xl bg-black/25 border border-white/5">
+                  <div className="flex items-center gap-3">
+                    <div className="text-xs text-white/70 font-medium">📋 Modelos de Treino (Templates)</div>
+                  </div>
+                  <div>
+                    {syncProgress.templates === 'loading' && <RefreshCw className="w-4 h-4 text-[#CCFF00] animate-spin" />}
+                    {syncProgress.templates === 'success' && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
+                    {syncProgress.templates === 'error' && <AlertTriangle className="w-4 h-4 text-red-400" />}
+                    {syncProgress.templates === 'idle' && <div className="w-3.5 h-3.5 rounded-full border-2 border-white/10" />}
+                  </div>
+                </div>
+
+                {/* Step 4: Completed */}
+                <div className="flex items-center justify-between p-3.5 rounded-xl bg-black/25 border border-white/5">
+                  <div className="flex items-center gap-3">
+                    <div className="text-xs text-white/70 font-medium">⏱️ Histórico de Treinos Finalizados</div>
+                  </div>
+                  <div>
+                    {syncProgress.completed === 'loading' && <RefreshCw className="w-4 h-4 text-[#CCFF00] animate-spin" />}
+                    {syncProgress.completed === 'success' && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
+                    {syncProgress.completed === 'error' && <AlertTriangle className="w-4 h-4 text-red-400" />}
+                    {syncProgress.completed === 'idle' && <div className="w-3.5 h-3.5 rounded-full border-2 border-white/10" />}
+                  </div>
+                </div>
+              </div>
+
+              {/* Error messages if any */}
+              {syncErrorDetails && (
+                <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl space-y-1">
+                  <div className="flex items-center gap-2 text-red-400 font-bold text-xs">
+                    <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" />
+                    <span>Erro de Sincronização</span>
+                  </div>
+                  <p className="text-[11px] text-white/70 font-mono leading-relaxed break-all">
+                    {syncErrorDetails}
+                  </p>
+                </div>
+              )}
+
+              {/* Status footer/action */}
+              <div className="pt-2">
+                {!isSyncing ? (
+                  syncErrorDetails ? (
+                    <button
+                      onClick={() => setShowSyncModal(false)}
+                      className="w-full py-3 bg-red-500/15 border border-red-500/20 hover:bg-red-500/25 text-red-300 font-bold uppercase tracking-wider text-xs rounded-xl transition cursor-pointer text-center"
+                    >
+                      Fechar e Corrigir
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setShowSyncModal(false)}
+                      className="w-full py-3 bg-[#CCFF00] text-black hover:bg-[#bce600] font-bold uppercase tracking-wider text-xs rounded-xl transition cursor-pointer text-center"
+                    >
+                      Ok, Entendi!
+                    </button>
+                  )
+                ) : (
+                  <div className="w-full py-3 bg-white/5 border border-white/5 text-white/40 font-mono text-center text-[10px] tracking-wider uppercase rounded-xl">
+                    Sincronizando com o banco Firestore...
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

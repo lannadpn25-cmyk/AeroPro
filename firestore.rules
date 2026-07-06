@@ -39,7 +39,7 @@ service cloud.firestore {
 
     // 2. Activities Validation Rules
     match /activities/{activityId} {
-      allow get: if isValidId(activityId) && isOwner(existing());
+      allow get: if isValidId(activityId) && (resource == null || isOwner(resource.data));
       allow list: if isOwner(resource.data);
       allow create: if isValidId(activityId) &&
         isOwner(incoming()) &&
@@ -58,7 +58,7 @@ service cloud.firestore {
 
     // 3. Templates Validation Rules
     match /templates/{templateId} {
-      allow get: if isValidId(templateId) && isOwner(existing());
+      allow get: if isValidId(templateId) && (resource == null || isOwner(resource.data));
       allow list: if isOwner(resource.data);
       allow create: if isValidId(templateId) &&
         isOwner(incoming()) &&
@@ -76,7 +76,7 @@ service cloud.firestore {
 
     // 4. Completed Workouts Validation Rules
     match /completedWorkouts/{workoutId} {
-      allow get: if isValidId(workoutId) && isOwner(existing());
+      allow get: if isValidId(workoutId) && (resource == null || isOwner(resource.data));
       allow list: if isOwner(resource.data);
       allow create: if isValidId(workoutId) &&
         isOwner(incoming()) &&
