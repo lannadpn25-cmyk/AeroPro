@@ -10,6 +10,7 @@ import {
   where,
   getDoc
 } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
 
 // Read config from JSON or fallback
 const firebaseConfig = {
@@ -28,10 +29,17 @@ const app = initializeApp(firebaseConfig);
 // Initialize Firestore with custom databaseId
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 
+// Initialize Auth
+export const auth = getAuth(app);
+
 /**
  * Gets or generates a unique user identifier for cloud data isolation
  */
 export function getOrCreateUserId(): string {
+  const currentAuthUser = auth.currentUser;
+  if (currentAuthUser) {
+    return currentAuthUser.uid;
+  }
   let userId = localStorage.getItem('aeroprogress_cloud_uid');
   if (!userId) {
     userId = 'user_' + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
@@ -222,5 +230,101 @@ export async function dbDeleteCompletedWorkout(workoutId: string): Promise<void>
     await deleteDoc(docRef);
   } catch (error) {
     console.error("Error deleting completed workout from Firestore:", error);
+  }
+}
+
+/**
+ * Migrates local app data to the logged-in user's cloud Firestore collections
+ */
+export async function dbMigrateDataToUser(
+  newUid: string,
+  localData: {
+    activities: any[];
+    templates: any[];
+    completedWorkouts: any[];
+    weeklyGoals: any;
+  }
+): Promise<{
+  activities: any[];
+  templates: any[];
+  completedWorkouts: any[];
+  weeklyGoals: any;
+}> {
+  try {
+    // 1. Migrate Goals (if exists locally, upload)
+    if (localData.weeklyGoals) {
+      const docRef = doc(db, GOALS_COLL, newUid);
+      const docSnap = await getDoc(docRef);
+      if (!docSnap.exists()) {
+        await setDoc(docRef, {
+          ...localData.weeklyGoals,
+          userId: newUid,
+          updatedAt: new Date().toISOString()
+        });
+      }
+    }
+
+    // 2. Migrate custom and standard Activities
+    for (const act of localData.activities) {
+      const docRef = doc(db, ACTIVITIES_COLL, act.id);
+      await setDoc(docRef, {
+        ...act,
+        userId: newUid,
+        updatedAt: new Date().toISOString()
+      });
+    }
+
+    // 3. Migrate Templates
+    for (const t of localData.templates) {
+      const docRef = doc(db, TEMPLATES_COLL, t.id);
+      await setDoc(docRef, {
+        ...t,
+        userId: newUid,
+        updatedAt: new Date().toISOString()
+      });
+    }
+
+    // 4. Migrate Completed Workouts
+    for (const comp of localData.completedWorkouts) {
+      const docRef = doc(db, COMPLETED_COLL, comp.id);
+      await setDoc(docRef, {
+        ...comp,
+        userId: newUid,
+        updatedAt: new Date().toISOString()
+      });
+    }
+
+    // Now fetch the absolute up-to-date states from Firestore for this user
+    const finalGoalsSnap = await getDoc(doc(db, GOALS_COLL, newUid));
+    const finalGoals = finalGoalsSnap.exists() ? finalGoalsSnap.data() : localData.weeklyGoals;
+
+    const actSnap = await getDocs(query(collection(db, ACTIVITIES_COLL), where('userId', '==', newUid)));
+    const finalActivities: any[] = [];
+    actSnap.forEach((doc) => {
+      finalActivities.push({ ...doc.data(), id: doc.id });
+    });
+
+    const tempSnap = await getDocs(query(collection(db, TEMPLATES_COLL), where('userId', '==', newUid)));
+    const finalTemplates: any[] = [];
+    tempSnap.forEach((doc) => {
+      finalTemplates.push({ ...doc.data(), id: doc.id });
+    });
+
+    const compSnap = await getDocs(query(collection(db, COMPLETED_COLL), where('userId', '==', newUid)));
+    const finalCompleted: any[] = [];
+    compSnap.forEach((doc) => {
+      finalCompleted.push({ ...doc.data(), id: doc.id });
+    });
+
+    return {
+      weeklyGoals: finalGoals,
+      activities: finalActivities.length > 0 ? finalActivities : localData.activities,
+      templates: finalTemplates.length > 0 ? finalTemplates : localData.templates,
+      completedWorkouts: finalCompleted.length > 0 ? finalCompleted.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()) : localData.completedWorkouts
+    };
+
+  } catch (error) {
+    console.error("Error migrating data to logged-in user account:", error);
+    throw error;
   }
 }

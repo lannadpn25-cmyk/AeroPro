@@ -20,10 +20,16 @@ service cloud.firestore {
       return resource.data;
     }
 
+    function isOwner(data) {
+      return (request.auth != null && data.userId == request.auth.uid) || 
+             (request.auth == null && data.userId is string);
+    }
+
     // 1. Weekly Goals Validation Rules
     match /weeklyGoals/{userId} {
-      allow get: if isValidId(userId);
+      allow get: if isValidId(userId) && (request.auth == null || request.auth.uid == userId);
       allow create, update: if isValidId(userId) && 
+        (request.auth == null || request.auth.uid == userId) &&
         incoming().userId == userId &&
         incoming().targetMinutes is number &&
         incoming().targetDistanceKm is number &&
@@ -33,50 +39,56 @@ service cloud.firestore {
 
     // 2. Activities Validation Rules
     match /activities/{activityId} {
-      allow get: if isValidId(activityId);
-      allow list: if true;
+      allow get: if isValidId(activityId) && isOwner(existing());
+      allow list: if isOwner(resource.data);
       allow create: if isValidId(activityId) &&
+        isOwner(incoming()) &&
         incoming().id == activityId &&
         incoming().name is string &&
         incoming().name.size() > 0 &&
-        incoming().type is string &&
-        incoming().userId is string;
+        incoming().type is string;
       allow update: if isValidId(activityId) &&
+        isOwner(existing()) &&
+        isOwner(incoming()) &&
         incoming().userId == existing().userId &&
         incoming().name is string &&
         incoming().type is string;
-      allow delete: if isValidId(activityId);
+      allow delete: if isValidId(activityId) && isOwner(existing());
     }
 
     // 3. Templates Validation Rules
     match /templates/{templateId} {
-      allow get: if isValidId(templateId);
-      allow list: if true;
+      allow get: if isValidId(templateId) && isOwner(existing());
+      allow list: if isOwner(resource.data);
       allow create: if isValidId(templateId) &&
+        isOwner(incoming()) &&
         incoming().id == templateId &&
         incoming().name is string &&
-        incoming().userId is string &&
         incoming().type is string;
       allow update: if isValidId(templateId) &&
+        isOwner(existing()) &&
+        isOwner(incoming()) &&
         incoming().userId == existing().userId &&
         incoming().name is string &&
         incoming().type is string;
-      allow delete: if isValidId(templateId);
+      allow delete: if isValidId(templateId) && isOwner(existing());
     }
 
     // 4. Completed Workouts Validation Rules
     match /completedWorkouts/{workoutId} {
-      allow get: if isValidId(workoutId);
-      allow list: if true;
+      allow get: if isValidId(workoutId) && isOwner(existing());
+      allow list: if isOwner(resource.data);
       allow create: if isValidId(workoutId) &&
+        isOwner(incoming()) &&
         incoming().id == workoutId &&
-        incoming().userId is string &&
         incoming().workoutName is string &&
         incoming().actualDurationMinutes is number;
       allow update: if isValidId(workoutId) &&
+        isOwner(existing()) &&
+        isOwner(incoming()) &&
         incoming().userId == existing().userId &&
         incoming().workoutName is string;
-      allow delete: if isValidId(workoutId);
+      allow delete: if isValidId(workoutId) && isOwner(existing());
     }
   }
 }
