@@ -21,8 +21,21 @@ import WorkoutPlayer from './components/WorkoutPlayer';
 import SessionHistory from './components/SessionHistory';
 import ReportView from './components/ReportView';
 import { 
-  TrendingUp, Calendar, Dumbbell, Printer, Heart, Award, Sparkles, Flame 
+  TrendingUp, Calendar, Dumbbell, Printer, Heart, Award, Sparkles, Flame, Cloud, RefreshCw 
 } from 'lucide-react';
+import {
+  dbFetchWeeklyGoals,
+  dbSaveWeeklyGoals,
+  dbFetchActivities,
+  dbSaveActivity,
+  dbDeleteActivity,
+  dbFetchTemplates,
+  dbSaveTemplate,
+  dbDeleteTemplate,
+  dbFetchCompletedWorkouts,
+  dbSaveCompletedWorkout,
+  dbDeleteCompletedWorkout
+} from './utils/firebase';
 
 export default function App() {
   // Navigation tabs
@@ -33,6 +46,7 @@ export default function App() {
   const [templates, setTemplates] = useState<WorkoutTemplate[]>([]);
   const [completedWorkouts, setCompletedWorkouts] = useState<CompletedWorkout[]>([]);
   const [weeklyGoals, setWeeklyGoals] = useState<WeeklyGoals>(DEFAULT_WEEKLY_GOALS);
+  const [isLoadingCloud, setIsLoadingCloud] = useState(true);
 
   // Active workout player states
   const [activeWorkout, setActiveWorkout] = useState<WorkoutTemplate | null>(null);
@@ -40,137 +54,190 @@ export default function App() {
   const [voiceMode, setVoiceMode] = useState(true);
   const [isEditingGoals, setIsEditingGoals] = useState(false);
 
-  // Load from LocalStorage or use defaults
+  // Load from Firebase with LocalStorage fallback
   useEffect(() => {
-    const storedActivities = localStorage.getItem('aeroprogress_activities');
-    const storedTemplates = localStorage.getItem('aeroprogress_templates');
-    const storedCompleted = localStorage.getItem('aeroprogress_completed');
-    const storedGoals = localStorage.getItem('aeroprogress_goals');
+    const loadAppData = async () => {
+      try {
+        setIsLoadingCloud(true);
 
-    if (storedActivities) {
-      setActivities(JSON.parse(storedActivities));
-    } else {
-      setActivities(DEFAULT_ACTIVITIES);
-      localStorage.setItem('aeroprogress_activities', JSON.stringify(DEFAULT_ACTIVITIES));
-    }
-
-    if (storedTemplates) {
-      setTemplates(JSON.parse(storedTemplates));
-    } else {
-      setTemplates(DEFAULT_TEMPLATES);
-      localStorage.setItem('aeroprogress_templates', JSON.stringify(DEFAULT_TEMPLATES));
-    }
-
-    if (storedGoals) {
-      setWeeklyGoals(JSON.parse(storedGoals));
-    } else {
-      setWeeklyGoals(DEFAULT_WEEKLY_GOALS);
-    }
-
-    if (storedCompleted) {
-      setCompletedWorkouts(JSON.parse(storedCompleted));
-    } else {
-      // Seed some mock workout history for elegant first-time charts
-      const now = new Date();
-      const mockHistory: CompletedWorkout[] = [
-        {
-          id: 'mock-1',
-          templateId: 'temp-caminhada-progressiva',
-          workoutName: 'Caminhada Progressiva 15min',
-          activityId: 'act-caminhada',
-          activityName: 'Caminhada ao Ar Livre',
-          activityType: 'aerobic',
-          date: new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000).toISOString(),
-          plannedDurationMinutes: 15,
-          actualDurationMinutes: 15,
-          actualDistanceKm: 2.1,
-          avgHeartRateBpm: 112,
-          notes: 'Aquecimento inicial e ritmos rápidos muito bons.'
-        },
-        {
-          id: 'mock-2',
-          templateId: 'temp-corrida-intervalada',
-          workoutName: 'Corrida Intervalada 20min',
-          activityId: 'act-corrida',
-          activityName: 'Corrida ao Ar Livre',
-          activityType: 'aerobic',
-          date: new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000).toISOString(),
-          plannedDurationMinutes: 20,
-          actualDurationMinutes: 20,
-          actualDistanceKm: 4.3,
-          avgHeartRateBpm: 145,
-          notes: 'Foco no tiro de 11km/h na metade do tempo.'
-        },
-        {
-          id: 'mock-3',
-          templateId: 'temp-corrida-intervalada',
-          workoutName: 'Corrida Intervalada Forte',
-          activityId: 'act-corrida',
-          activityName: 'Corrida ao Ar Livre',
-          activityType: 'aerobic',
-          date: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-          plannedDurationMinutes: 20,
-          actualDurationMinutes: 22,
-          actualDistanceKm: 4.8,
-          avgHeartRateBpm: 151,
-          notes: 'Pace excelente e fôlego em evolução constante!'
+        // 1. Fetch Weekly Goals
+        let finalGoals = DEFAULT_WEEKLY_GOALS;
+        const dbGoals = await dbFetchWeeklyGoals();
+        if (dbGoals) {
+          finalGoals = dbGoals;
+        } else {
+          const storedGoals = localStorage.getItem('aeroprogress_goals');
+          if (storedGoals) {
+            finalGoals = JSON.parse(storedGoals);
+          }
+          await dbSaveWeeklyGoals(finalGoals);
         }
-      ];
-      setCompletedWorkouts(mockHistory);
-      localStorage.setItem('aeroprogress_completed', JSON.stringify(mockHistory));
-    }
+        setWeeklyGoals(finalGoals);
+        localStorage.setItem('aeroprogress_goals', JSON.stringify(finalGoals));
+
+        // 2. Fetch Activities
+        let finalActivities = DEFAULT_ACTIVITIES;
+        const dbActivities = await dbFetchActivities();
+        if (dbActivities && dbActivities.length > 0) {
+          finalActivities = dbActivities;
+        } else {
+          const storedActivities = localStorage.getItem('aeroprogress_activities');
+          if (storedActivities) {
+            finalActivities = JSON.parse(storedActivities);
+          }
+          // Seed to Firebase
+          for (const act of finalActivities) {
+            await dbSaveActivity(act);
+          }
+        }
+        setActivities(finalActivities);
+        localStorage.setItem('aeroprogress_activities', JSON.stringify(finalActivities));
+
+        // 3. Fetch Templates
+        let finalTemplates = DEFAULT_TEMPLATES;
+        const dbTemplates = await dbFetchTemplates();
+        if (dbTemplates && dbTemplates.length > 0) {
+          finalTemplates = dbTemplates;
+        } else {
+          const storedTemplates = localStorage.getItem('aeroprogress_templates');
+          if (storedTemplates) {
+            finalTemplates = JSON.parse(storedTemplates);
+          }
+          // Seed to Firebase
+          for (const t of finalTemplates) {
+            await dbSaveTemplate(t);
+          }
+        }
+        setTemplates(finalTemplates);
+        localStorage.setItem('aeroprogress_templates', JSON.stringify(finalTemplates));
+
+        // 4. Fetch Completed Workouts
+        let finalCompleted: CompletedWorkout[] = [];
+        const dbCompleted = await dbFetchCompletedWorkouts();
+        if (dbCompleted && dbCompleted.length > 0) {
+          finalCompleted = dbCompleted;
+        } else {
+          const storedCompleted = localStorage.getItem('aeroprogress_completed');
+          if (storedCompleted) {
+            finalCompleted = JSON.parse(storedCompleted);
+          } else {
+            // Seed defaults for gorgeous graphs
+            const now = new Date();
+            finalCompleted = [
+              {
+                id: 'mock-1',
+                templateId: 'temp-caminhada-progressiva',
+                workoutName: 'Caminhada Progressiva 15min',
+                activityId: 'act-caminhada',
+                activityName: 'Caminhada ao Ar Livre',
+                activityType: 'aerobic',
+                date: new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000).toISOString(),
+                plannedDurationMinutes: 15,
+                actualDurationMinutes: 15,
+                actualDistanceKm: 2.1,
+                avgHeartRateBpm: 112,
+                notes: 'Aquecimento inicial e ritmos rápidos muito bons.'
+              },
+              {
+                id: 'mock-2',
+                templateId: 'temp-corrida-intervalada',
+                workoutName: 'Corrida Intervalada 20min',
+                activityId: 'act-corrida',
+                activityName: 'Corrida ao Ar Livre',
+                activityType: 'aerobic',
+                date: new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000).toISOString(),
+                plannedDurationMinutes: 20,
+                actualDurationMinutes: 20,
+                actualDistanceKm: 4.3,
+                avgHeartRateBpm: 145,
+                notes: 'Foco no tiro de 11km/h na metade do tempo.'
+              },
+              {
+                id: 'mock-3',
+                templateId: 'temp-corrida-intervalada',
+                workoutName: 'Corrida Intervalada Forte',
+                activityId: 'act-corrida',
+                activityName: 'Corrida ao Ar Livre',
+                activityType: 'aerobic',
+                date: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+                plannedDurationMinutes: 20,
+                actualDurationMinutes: 22,
+                actualDistanceKm: 4.8,
+                avgHeartRateBpm: 151,
+                notes: 'Pace excelente e fôlego em evolução constante!'
+              }
+            ];
+          }
+          // Seed to Firebase
+          for (const comp of finalCompleted) {
+            await dbSaveCompletedWorkout(comp);
+          }
+        }
+        setCompletedWorkouts(finalCompleted);
+        localStorage.setItem('aeroprogress_completed', JSON.stringify(finalCompleted));
+
+      } catch (err) {
+        console.error("Firebase sync error, fallback to local storage:", err);
+        // Fallback local storage parse
+        const storedActivities = localStorage.getItem('aeroprogress_activities');
+        const storedTemplates = localStorage.getItem('aeroprogress_templates');
+        const storedCompleted = localStorage.getItem('aeroprogress_completed');
+        const storedGoals = localStorage.getItem('aeroprogress_goals');
+        if (storedActivities) setActivities(JSON.parse(storedActivities));
+        else setActivities(DEFAULT_ACTIVITIES);
+        if (storedTemplates) setTemplates(JSON.parse(storedTemplates));
+        else setTemplates(DEFAULT_TEMPLATES);
+        if (storedGoals) setWeeklyGoals(JSON.parse(storedGoals));
+        if (storedCompleted) setCompletedWorkouts(JSON.parse(storedCompleted));
+      } finally {
+        setIsLoadingCloud(false);
+      }
+    };
+
+    loadAppData();
   }, []);
 
-  // Save to LocalStorage whenever state changes
-  const saveActivities = (newActivities: Activity[]) => {
-    setActivities(newActivities);
-    localStorage.setItem('aeroprogress_activities', JSON.stringify(newActivities));
-  };
-
-  const saveTemplates = (newTemplates: WorkoutTemplate[]) => {
-    setTemplates(newTemplates);
-    localStorage.setItem('aeroprogress_templates', JSON.stringify(newTemplates));
-  };
-
-  const saveCompleted = (newCompleted: CompletedWorkout[]) => {
-    setCompletedWorkouts(newCompleted);
-    localStorage.setItem('aeroprogress_completed', JSON.stringify(newCompleted));
-  };
-
-  const saveGoals = (newGoals: WeeklyGoals) => {
-    setWeeklyGoals(newGoals);
-    localStorage.setItem('aeroprogress_goals', JSON.stringify(newGoals));
-  };
-
-  // State Handlers
-  const handleAddActivity = (activity: Activity) => {
+  // State Handlers with Firebase Synchronization
+  const handleAddActivity = async (activity: Activity) => {
     const updated = [...activities, activity];
-    saveActivities(updated);
+    setActivities(updated);
+    localStorage.setItem('aeroprogress_activities', JSON.stringify(updated));
+    await dbSaveActivity(activity);
   };
 
-  const handleEditActivity = (updatedActivity: Activity) => {
+  const handleEditActivity = async (updatedActivity: Activity) => {
     const updated = activities.map(a => a.id === updatedActivity.id ? updatedActivity : a);
-    saveActivities(updated);
+    setActivities(updated);
+    localStorage.setItem('aeroprogress_activities', JSON.stringify(updated));
+    await dbSaveActivity(updatedActivity);
   };
 
-  const handleDeleteActivity = (id: string) => {
+  const handleDeleteActivity = async (id: string) => {
     const updated = activities.filter(a => a.id !== id);
-    saveActivities(updated);
+    setActivities(updated);
+    localStorage.setItem('aeroprogress_activities', JSON.stringify(updated));
+    await dbDeleteActivity(id);
   };
 
-  const handleAddTemplate = (template: WorkoutTemplate) => {
+  const handleAddTemplate = async (template: WorkoutTemplate) => {
     const updated = [...templates, template];
-    saveTemplates(updated);
+    setTemplates(updated);
+    localStorage.setItem('aeroprogress_templates', JSON.stringify(updated));
+    await dbSaveTemplate(template);
   };
 
-  const handleDeleteTemplate = (id: string) => {
+  const handleDeleteTemplate = async (id: string) => {
     const updated = templates.filter(t => t.id !== id);
-    saveTemplates(updated);
+    setTemplates(updated);
+    localStorage.setItem('aeroprogress_templates', JSON.stringify(updated));
+    await dbDeleteTemplate(id);
   };
 
-  const handleEditTemplate = (updatedTemplate: WorkoutTemplate) => {
+  const handleEditTemplate = async (updatedTemplate: WorkoutTemplate) => {
     const updated = templates.map(t => t.id === updatedTemplate.id ? updatedTemplate : t);
-    saveTemplates(updated);
+    setTemplates(updated);
+    localStorage.setItem('aeroprogress_templates', JSON.stringify(updated));
+    await dbSaveTemplate(updatedTemplate);
   };
 
   const handleStartWorkout = (template: WorkoutTemplate, music: boolean, voice: boolean) => {
@@ -179,7 +246,7 @@ export default function App() {
     setActiveWorkout(template);
   };
 
-  const handleSaveSession = (sessionData: Omit<CompletedWorkout, 'id' | 'date'>) => {
+  const handleSaveSession = async (sessionData: Omit<CompletedWorkout, 'id' | 'date'>) => {
     const newSession: CompletedWorkout = {
       ...sessionData,
       id: `session-${Date.now()}`,
@@ -187,19 +254,48 @@ export default function App() {
     };
 
     const updated = [newSession, ...completedWorkouts];
-    saveCompleted(updated);
+    setCompletedWorkouts(updated);
+    localStorage.setItem('aeroprogress_completed', JSON.stringify(updated));
+    await dbSaveCompletedWorkout(newSession);
     setActiveWorkout(null);
     setActiveTab('historico'); // Automatically redirect to History of runs to view entry
   };
 
-  const handleDeleteSession = (id: string) => {
+  const handleDeleteSession = async (id: string) => {
     const updated = completedWorkouts.filter(s => s.id !== id);
-    saveCompleted(updated);
+    setCompletedWorkouts(updated);
+    localStorage.setItem('aeroprogress_completed', JSON.stringify(updated));
+    await dbDeleteCompletedWorkout(id);
+  };
+
+  const saveGoals = async (newGoals: WeeklyGoals) => {
+    setWeeklyGoals(newGoals);
+    localStorage.setItem('aeroprogress_goals', JSON.stringify(newGoals));
+    await dbSaveWeeklyGoals(newGoals);
   };
 
   const handleViewTemplateHistory = (templateId: string) => {
     setActiveTab('historico');
   };
+
+  if (isLoadingCloud) {
+    return (
+      <div className="min-h-screen bg-[#0A0A0B] text-white flex flex-col items-center justify-center font-sans p-6">
+        <div className="flex flex-col items-center gap-4 max-w-sm text-center">
+          <div className="relative">
+            <div className="w-16 h-16 bg-[#CCFF00]/10 border border-[#CCFF00]/20 rounded-full flex items-center justify-center">
+              <RefreshCw className="w-8 h-8 text-[#CCFF00] animate-spin" />
+            </div>
+            <Cloud className="w-5 h-5 text-emerald-400 absolute -bottom-1 -right-1 animate-pulse" />
+          </div>
+          <div>
+            <h2 className="text-lg font-black tracking-wider uppercase text-white font-display">AERO-X PRO</h2>
+            <p className="text-xs text-white/50 mt-1 font-mono">Iniciando conexão segura com Firestore...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0A0A0B] text-white selection:bg-[#CCFF00] selection:text-black flex flex-col font-sans">
@@ -221,6 +317,11 @@ export default function App() {
             </div>
 
             <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-emerald-400 text-[10px] font-mono font-bold tracking-wider uppercase select-none">
+                <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
+                Nuvem Ativa
+              </div>
+
               <button 
                 onClick={() => {
                   setActiveTab('resumo');
@@ -237,6 +338,7 @@ export default function App() {
           </div>
         </header>
       )}
+
 
       {/* Main content body container */}
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-6 mb-16">

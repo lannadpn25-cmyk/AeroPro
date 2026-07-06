@@ -1,0 +1,63 @@
+{
+  "collections": {
+    "weeklyGoals": {
+      "description": "Weekly cardio and workout goals for each user profile",
+      "fields": {
+        "userId": "string",
+        "targetMinutes": "number",
+        "targetDistanceKm": "number",
+        "targetWorkoutsCount": "number",
+        "updatedAt": "string"
+      }
+    },
+    "activities": {
+      "description": "Custom and pre-configured activities available to select",
+      "fields": {
+        "id": "string",
+        "name": "string",
+        "type": "string",
+        "icon": "string",
+        "description": "string",
+        "isCustom": "boolean",
+        "userId": "string",
+        "updatedAt": "string"
+      }
+    },
+    "templates": {
+      "description": "Workout structure templates containing sets, exercises or chunks",
+      "fields": {
+        "id": "string",
+        "name": "string",
+        "activityId": "string",
+        "type": "string",
+        "targetUnit": "string",
+        "targetValue": "number",
+        "chunks": "array",
+        "strengthExercises": "array",
+        "userId": "string",
+        "updatedAt": "string"
+      }
+    },
+    "completedWorkouts": {
+      "description": "Logs of workouts successfully executed and completed by users",
+      "fields": {
+        "id": "string",
+        "templateId": "string",
+        "workoutName": "string",
+        "activityId": "string",
+        "activityName": "string",
+        "activityType": "string",
+        "date": "string",
+        "plannedDurationMinutes": "number",
+        "actualDurationMinutes": "number",
+        "actualDistanceKm": "number",
+        "avgHeartRateBpm": "number",
+        "notes": "string",
+        "chunks": "array",
+        "strengthExercises": "array",
+        "userId": "string",
+        "updatedAt": "string"
+      }
+    }
+  }
+}

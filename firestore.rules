@@ -1,0 +1,79 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Default-deny catch-all safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global utility validation functions
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // 1. Weekly Goals Validation Rules
+    match /weeklyGoals/{userId} {
+      allow get: if isValidId(userId);
+      allow create, update: if isValidId(userId) && 
+        incoming().userId == userId &&
+        incoming().targetMinutes is number &&
+        incoming().targetDistanceKm is number &&
+        incoming().targetWorkoutsCount is number;
+      allow delete: if false; // Weekly goals shouldn't be deleted
+    }
+
+    // 2. Activities Validation Rules
+    match /activities/{activityId} {
+      allow read: if isValidId(activityId) && (resource == null || resource.data.userId is string);
+      allow create: if isValidId(activityId) &&
+        incoming().id == activityId &&
+        incoming().name is string &&
+        incoming().name.size() > 0 &&
+        incoming().type is string &&
+        incoming().userId is string;
+      allow update: if isValidId(activityId) &&
+        incoming().userId == existing().userId &&
+        incoming().name is string &&
+        incoming().type is string;
+      allow delete: if isValidId(activityId);
+    }
+
+    // 3. Templates Validation Rules
+    match /templates/{templateId} {
+      allow read: if isValidId(templateId) && (resource == null || resource.data.userId is string);
+      allow create: if isValidId(templateId) &&
+        incoming().id == templateId &&
+        incoming().name is string &&
+        incoming().userId is string &&
+        incoming().type is string;
+      allow update: if isValidId(templateId) &&
+        incoming().userId == existing().userId &&
+        incoming().name is string &&
+        incoming().type is string;
+      allow delete: if isValidId(templateId);
+    }
+
+    // 4. Completed Workouts Validation Rules
+    match /completedWorkouts/{workoutId} {
+      allow read: if isValidId(workoutId) && (resource == null || resource.data.userId is string);
+      allow create: if isValidId(workoutId) &&
+        incoming().id == workoutId &&
+        incoming().userId is string &&
+        incoming().workoutName is string &&
+        incoming().actualDurationMinutes is number;
+      allow update: if isValidId(workoutId) &&
+        incoming().userId == existing().userId &&
+        incoming().workoutName is string;
+      allow delete: if isValidId(workoutId);
+    }
+  }
+}
