@@ -493,7 +493,7 @@ export default function WorkoutList({
                           <span className="text-[#CCFF00] text-[10px] font-bold tracking-[0.2em] uppercase hidden sm:block truncate">
                             {activity.name}
                           </span>
-                          <h3 className="text-base sm:text-lg font-black text-white tracking-tight leading-snug uppercase font-display break-words">
+                          <h3 className="text-sm sm:text-base md:text-lg font-black text-white tracking-tight leading-snug uppercase font-display truncate whitespace-nowrap" title={template.name}>
                             {template.name}
                           </h3>
                           {template.type === 'aerobic' ? (

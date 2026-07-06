@@ -96,6 +96,29 @@ export function getOrCreateUserId(): string {
   return userId;
 }
 
+/**
+ * Recursively removes all undefined properties from an object to prevent Firestore errors
+ */
+export function sanitizeForFirestore(obj: any): any {
+  if (obj === null || obj === undefined) {
+    return null;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(item => sanitizeForFirestore(item));
+  }
+  if (typeof obj === 'object') {
+    const clean: any = {};
+    for (const key of Object.keys(obj)) {
+      const val = obj[key];
+      if (val !== undefined) {
+        clean[key] = sanitizeForFirestore(val);
+      }
+    }
+    return clean;
+  }
+  return obj;
+}
+
 // Collections Keys
 const GOALS_COLL = 'weeklyGoals';
 const ACTIVITIES_COLL = 'activities';
@@ -129,11 +152,11 @@ export async function dbSaveWeeklyGoals(goals: any): Promise<void> {
   const path = `${GOALS_COLL}/${uid}`;
   try {
     const docRef = doc(db, GOALS_COLL, uid);
-    await setDoc(docRef, {
+    await setDoc(docRef, sanitizeForFirestore({
       ...goals,
       userId: uid,
       updatedAt: new Date().toISOString()
-    });
+    }));
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
@@ -169,11 +192,11 @@ export async function dbSaveActivity(activity: any): Promise<void> {
   const path = `${ACTIVITIES_COLL}/${docId}`;
   try {
     const docRef = doc(db, ACTIVITIES_COLL, docId);
-    await setDoc(docRef, {
+    await setDoc(docRef, sanitizeForFirestore({
       ...activity,
       userId: uid,
       updatedAt: new Date().toISOString()
-    });
+    }));
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
@@ -224,11 +247,11 @@ export async function dbSaveTemplate(template: any): Promise<void> {
   const path = `${TEMPLATES_COLL}/${docId}`;
   try {
     const docRef = doc(db, TEMPLATES_COLL, docId);
-    await setDoc(docRef, {
+    await setDoc(docRef, sanitizeForFirestore({
       ...template,
       userId: uid,
       updatedAt: new Date().toISOString()
-    });
+    }));
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
@@ -280,11 +303,11 @@ export async function dbSaveCompletedWorkout(workout: any): Promise<void> {
   const path = `${COMPLETED_COLL}/${docId}`;
   try {
     const docRef = doc(db, COMPLETED_COLL, docId);
-    await setDoc(docRef, {
+    await setDoc(docRef, sanitizeForFirestore({
       ...workout,
       userId: uid,
       updatedAt: new Date().toISOString()
-    });
+    }));
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
@@ -329,11 +352,11 @@ export async function dbMigrateDataToUser(
       const docRef = doc(db, GOALS_COLL, newUid);
       const docSnap = await getDoc(docRef);
       if (!docSnap.exists()) {
-        await setDoc(docRef, {
+        await setDoc(docRef, sanitizeForFirestore({
           ...localData.weeklyGoals,
           userId: newUid,
           updatedAt: new Date().toISOString()
-        });
+        }));
       }
     }
 
@@ -344,11 +367,11 @@ export async function dbMigrateDataToUser(
       // Only migrate if not already exists on server to prevent overwriting cloud state with local/device default
       const docSnap = await getDoc(docRef);
       if (!docSnap.exists()) {
-        await setDoc(docRef, {
+        await setDoc(docRef, sanitizeForFirestore({
           ...act,
           userId: newUid,
           updatedAt: new Date().toISOString()
-        });
+        }));
       }
     }
 
@@ -358,11 +381,11 @@ export async function dbMigrateDataToUser(
       const docRef = doc(db, TEMPLATES_COLL, docId);
       const docSnap = await getDoc(docRef);
       if (!docSnap.exists()) {
-        await setDoc(docRef, {
+        await setDoc(docRef, sanitizeForFirestore({
           ...t,
           userId: newUid,
           updatedAt: new Date().toISOString()
-        });
+        }));
       }
     }
 
@@ -372,11 +395,11 @@ export async function dbMigrateDataToUser(
       const docRef = doc(db, COMPLETED_COLL, docId);
       const docSnap = await getDoc(docRef);
       if (!docSnap.exists()) {
-        await setDoc(docRef, {
+        await setDoc(docRef, sanitizeForFirestore({
           ...comp,
           userId: newUid,
           updatedAt: new Date().toISOString()
-        });
+        }));
       }
     }
 

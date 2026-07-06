@@ -152,7 +152,7 @@ export default function SessionHistory({ completedWorkouts, onDeleteSession, onU
                                 {formatFullDateTime(session.date)}
                               </span>
                             </div>
-                            <h3 className="text-base font-black text-white tracking-tight leading-snug uppercase font-display">
+                            <h3 className="text-sm sm:text-base font-black text-white tracking-tight leading-snug uppercase font-display truncate whitespace-nowrap" title={session.workoutName}>
                               {session.workoutName}
                             </h3>
                           </div>
