@@ -427,17 +427,17 @@ export default function WorkoutList({
       {viewState === 'list' && (
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-            <div>
+            <div className="text-center sm:text-left">
               <h1 className="text-3xl font-black text-white font-display tracking-tighter uppercase italic">Escolha Seu Treino</h1>
             </div>
             
-            <div className="flex gap-2">
+            <div className="flex gap-2 justify-center sm:justify-start">
               <button
                 onClick={() => setViewState('create-activity')}
                 className="flex items-center gap-1.5 bg-[#151518] border border-white/10 hover:bg-white/5 hover:text-white text-white/80 px-4 py-2 rounded text-xs font-bold uppercase tracking-widest transition"
               >
                 <Plus className="w-3.5 h-3.5 text-[#CCFF00]" />
-                Nova Atividade
+                Atividade
               </button>
               <button
                 onClick={() => {
@@ -449,7 +449,7 @@ export default function WorkoutList({
                 className="flex items-center gap-1.5 bg-[#CCFF00] hover:bg-[#b3e000] text-black px-4 py-2 rounded text-xs font-black uppercase tracking-widest transition shadow-[0_0_15px_rgba(204,255,0,0.15)]"
               >
                 <Plus className="w-3.5 h-3.5" />
-                Criar Treino
+                Treino
               </button>
             </div>
           </div>
@@ -478,24 +478,28 @@ export default function WorkoutList({
                     onDragStart={(e) => handleTemplateDragStart(e, index)}
                     onDragOver={handleTemplateDragOver}
                     onDrop={(e) => handleTemplateDrop(e, index)}
-                    className={`bg-[#151518] border rounded-2xl p-5 hover:border-[#CCFF00]/40 transition duration-300 relative overflow-hidden group shadow-md cursor-grab active:cursor-grabbing ${
+                    className={`bg-[#151518] border rounded-2xl px-2.5 sm:px-5 py-4 sm:py-5 hover:border-[#CCFF00]/40 transition duration-300 relative overflow-hidden group shadow-md cursor-grab active:cursor-grabbing ${
                       draggedTemplateIndex === index ? 'opacity-40 border-dashed border-[#CCFF00]/60 bg-[#CCFF00]/5' : 'border-white/5'
                     }`}
                     id={`workout-card-${template.id}`}
                   >
+                    {/* H3 title row above, occupying whole width with space for the top absolute buttons */}
+                    <div className="mb-2 sm:mb-4 pr-32">
+                      <span className="text-[#CCFF00] text-[10px] font-bold tracking-[0.2em] uppercase hidden sm:block mb-1 truncate">
+                        {activity.name}
+                      </span>
+                      <h3 className="text-sm sm:text-base md:text-lg font-black text-white tracking-tight leading-snug uppercase font-display truncate whitespace-nowrap" title={template.name}>
+                        {template.name}
+                      </h3>
+                    </div>
+
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      {/* Left Block: Icon & Info with padding to avoid overlapping the absolute action buttons */}
-                      <div className="flex gap-3 items-center pr-16 sm:pr-0 flex-1 min-w-0">
+                      {/* Left Block: Icon & Info */}
+                      <div className="flex gap-3 items-center flex-1 min-w-0">
                         <div className="p-3 bg-white/5 border border-white/10 text-[#CCFF00] rounded-xl shrink-0">
                           <ActivityIcon name={activity.icon} className="w-6 h-6 sm:w-7 sm:h-7" />
                         </div>
                         <div className="space-y-1 min-w-0 flex-1">
-                          <span className="text-[#CCFF00] text-[10px] font-bold tracking-[0.2em] uppercase hidden sm:block truncate">
-                            {activity.name}
-                          </span>
-                          <h3 className="text-sm sm:text-base md:text-lg font-black text-white tracking-tight leading-snug uppercase font-display truncate whitespace-nowrap" title={template.name}>
-                            {template.name}
-                          </h3>
                           {template.type === 'aerobic' ? (
                             <p className="text-white/40 text-[11px] sm:text-xs flex flex-wrap items-center gap-x-1.5 gap-y-0.5 font-mono">
                               <Milestone className="w-3.5 h-3.5 text-blue-400 shrink-0" />
@@ -559,41 +563,43 @@ export default function WorkoutList({
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
-                      
-                      {/* START Button - Prominent, high-contrast, large, and perfectly labeled */}
+                    </div>
+ 
+                    {/* Footer Action Buttons inside card - locked in a single row without wrapping */}
+                    <div className="flex flex-row gap-1.5 mt-5 border-t border-white/5 pt-4 w-full overflow-hidden">
+                      {/* START Button - Highly prominent, perfectly matching other button sizes */}
                       <button
                         onClick={() => onStartWorkout(template, false, isVoiceActive)}
-                        className="w-full sm:w-auto px-6 py-3 bg-[#CCFF00] hover:bg-[#b3e000] text-black font-black rounded-xl transition transform hover:scale-[1.02] sm:hover:scale-105 active:scale-95 shadow-[0_0_15px_rgba(204,255,0,0.25)] flex items-center justify-center gap-2 cursor-pointer uppercase tracking-widest text-xs font-mono shrink-0"
+                        className="flex-1 min-w-0 flex justify-center items-center py-2 px-1.5 sm:px-3 rounded bg-[#CCFF00] hover:bg-[#b3e000] text-black font-black transition transform active:scale-95 shadow-[0_0_15px_rgba(204,255,0,0.25)] gap-1 text-[9px] sm:text-[10px] uppercase tracking-wider cursor-pointer font-mono truncate"
                         id={`btn-play-workout-${template.id}`}
                         title="Iniciar Treino"
                       >
-                        <Play className="w-4 h-4 fill-black" />
-                        <span>START</span>
+                        <Play className="w-3 h-3 fill-black shrink-0" />
+                        <span className="truncate">START</span>
                       </button>
-                    </div>
- 
-                    {/* Footer Action Buttons inside card (now responsive with wrap to avoid squishing on narrow screens) */}
-                    <div className="flex flex-wrap sm:flex-nowrap gap-2 mt-5 border-t border-white/5 pt-4">
+
                       {/* Voice feedback toggle button */}
                       <button 
                         onClick={() => toggleVoice(template.id)}
-                        className={`flex-1 min-w-[100px] flex justify-center items-center py-2 px-2 sm:px-3 rounded transition gap-1.5 text-[10px] uppercase font-bold tracking-wider ${
+                        className={`flex-1 min-w-0 flex justify-center items-center py-2 px-1.5 sm:px-3 rounded transition gap-1 text-[9px] sm:text-[10px] uppercase font-bold tracking-wider truncate ${
                           isVoiceActive 
                             ? 'bg-[#CCFF00]/10 text-[#CCFF00] border border-[#CCFF00]/20' 
                             : 'bg-black/40 text-white/40 border border-white/5 hover:border-white/10 hover:text-white/60'
                         }`}
+                        title={isVoiceActive ? 'Voz Ativa' : 'Voz Muda'}
                       >
-                        <MessageSquare className="w-3.5 h-3.5 shrink-0" />
-                        <span>VOZ: {isVoiceActive ? 'ATIVA' : 'MUDA'}</span>
+                        <MessageSquare className="w-3 h-3 shrink-0" />
+                        <span className="truncate">{isVoiceActive ? 'VOZ' : 'MUDO'}</span>
                       </button>
  
                       {/* History button */}
                       <button 
                         onClick={() => onViewTemplateHistory(template.id)}
-                        className="flex-1 min-w-[100px] flex justify-center items-center py-2 px-2 sm:px-3 rounded bg-black/40 hover:bg-black/60 text-white/60 hover:text-white hover:border-white/10 transition border border-white/5 gap-1.5 text-[10px] uppercase font-bold tracking-wider"
+                        className="flex-1 min-w-0 flex justify-center items-center py-2 px-1.5 sm:px-3 rounded bg-black/40 hover:bg-black/60 text-white/60 hover:text-white hover:border-white/10 transition border border-white/5 gap-1 text-[9px] sm:text-[10px] uppercase font-bold tracking-wider truncate"
+                        title="Ver Histórico"
                       >
-                        <History className="w-3.5 h-3.5 shrink-0" />
-                        <span>HISTÓRICO</span>
+                        <History className="w-3 h-3 shrink-0" />
+                        <span className="truncate">HISTÓRICO</span>
                       </button>
                     </div>
                   </div>

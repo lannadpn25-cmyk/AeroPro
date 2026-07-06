@@ -644,7 +644,7 @@ export default function App() {
 
 
       {/* Main content body container */}
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-6 mb-16">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 pt-2.5 sm:pt-5 pb-6 mb-16">
         {activeWorkout ? (
           /* Active workout player mode completely hides normal header and tabs to foster deep focus */
           <WorkoutPlayer
