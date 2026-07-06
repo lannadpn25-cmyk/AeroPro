@@ -450,7 +450,7 @@ export default function WorkoutList({
                           <ActivityIcon name={activity.icon} className="w-6 h-6 sm:w-7 sm:h-7" />
                         </div>
                         <div className="space-y-1 min-w-0 flex-1">
-                          <span className="text-[#CCFF00] text-[10px] font-bold tracking-[0.2em] uppercase block truncate">
+                          <span className="text-[#CCFF00] text-[10px] font-bold tracking-[0.2em] uppercase hidden sm:block truncate">
                             {activity.name}
                           </span>
                           <h3 className="text-base sm:text-lg font-black text-white tracking-tight leading-snug uppercase font-display break-words">
@@ -514,7 +514,7 @@ export default function WorkoutList({
                       
                       {/* START Button - Prominent, high-contrast, large, and perfectly labeled */}
                       <button
-                        onClick={() => onStartWorkout(template, isMusicActive, isVoiceActive)}
+                        onClick={() => onStartWorkout(template, false, isVoiceActive)}
                         className="w-full sm:w-auto px-6 py-3 bg-[#CCFF00] hover:bg-[#b3e000] text-black font-black rounded-xl transition transform hover:scale-[1.02] sm:hover:scale-105 active:scale-95 shadow-[0_0_15px_rgba(204,255,0,0.25)] flex items-center justify-center gap-2 cursor-pointer uppercase tracking-widest text-xs font-mono shrink-0"
                         id={`btn-play-workout-${template.id}`}
                         title="Iniciar Treino"
@@ -526,19 +526,6 @@ export default function WorkoutList({
  
                     {/* Footer Action Buttons inside card (now responsive with wrap to avoid squishing on narrow screens) */}
                     <div className="flex flex-wrap sm:flex-nowrap gap-2 mt-5 border-t border-white/5 pt-4">
-                      {/* Music toggle button */}
-                      <button 
-                        onClick={() => toggleMusic(template.id)}
-                        className={`flex-1 min-w-[100px] flex justify-center items-center py-2 px-2 sm:px-3 rounded transition gap-1.5 text-[10px] uppercase font-bold tracking-wider ${
-                          isMusicActive 
-                            ? 'bg-[#CCFF00]/10 text-[#CCFF00] border border-[#CCFF00]/20' 
-                            : 'bg-black/40 text-white/40 border border-white/5 hover:border-white/10 hover:text-white/60'
-                        }`}
-                      >
-                        <Music className="w-3.5 h-3.5 shrink-0" />
-                        <span>MÚSICA: {isMusicActive ? 'SIM' : 'NÃO'}</span>
-                      </button>
- 
                       {/* Voice feedback toggle button */}
                       <button 
                         onClick={() => toggleVoice(template.id)}
