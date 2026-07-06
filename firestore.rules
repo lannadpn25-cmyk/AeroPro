@@ -43,7 +43,7 @@ service cloud.firestore {
       allow list: if isOwner(resource.data);
       allow create: if isValidId(activityId) &&
         isOwner(incoming()) &&
-        incoming().id == activityId &&
+        (incoming().id == activityId || activityId == incoming().userId + "_" + incoming().id) &&
         incoming().name is string &&
         incoming().name.size() > 0 &&
         incoming().type is string;
@@ -62,7 +62,7 @@ service cloud.firestore {
       allow list: if isOwner(resource.data);
       allow create: if isValidId(templateId) &&
         isOwner(incoming()) &&
-        incoming().id == templateId &&
+        (incoming().id == templateId || templateId == incoming().userId + "_" + incoming().id) &&
         incoming().name is string &&
         incoming().type is string;
       allow update: if isValidId(templateId) &&
@@ -80,7 +80,7 @@ service cloud.firestore {
       allow list: if isOwner(resource.data);
       allow create: if isValidId(workoutId) &&
         isOwner(incoming()) &&
-        incoming().id == workoutId &&
+        (incoming().id == workoutId || workoutId == incoming().userId + "_" + incoming().id) &&
         incoming().workoutName is string &&
         incoming().actualDurationMinutes is number;
       allow update: if isValidId(workoutId) &&

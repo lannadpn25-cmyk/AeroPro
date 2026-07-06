@@ -98,7 +98,8 @@ export async function dbFetchActivities(): Promise<any[] | null> {
     const querySnapshot = await getDocs(q);
     const list: any[] = [];
     querySnapshot.forEach((doc) => {
-      list.push({ ...doc.data(), id: doc.id });
+      const data = doc.data();
+      list.push({ ...data, id: data.id || doc.id.replace(`${uid}_`, '') });
     });
     return list.length > 0 ? list : null;
   } catch (error) {
@@ -113,7 +114,8 @@ export async function dbFetchActivities(): Promise<any[] | null> {
 export async function dbSaveActivity(activity: any): Promise<void> {
   try {
     const uid = getOrCreateUserId();
-    const docRef = doc(db, ACTIVITIES_COLL, activity.id);
+    const docId = `${uid}_${activity.id}`;
+    const docRef = doc(db, ACTIVITIES_COLL, docId);
     await setDoc(docRef, {
       ...activity,
       userId: uid,
@@ -129,7 +131,9 @@ export async function dbSaveActivity(activity: any): Promise<void> {
  */
 export async function dbDeleteActivity(activityId: string): Promise<void> {
   try {
-    const docRef = doc(db, ACTIVITIES_COLL, activityId);
+    const uid = getOrCreateUserId();
+    const docId = `${uid}_${activityId}`;
+    const docRef = doc(db, ACTIVITIES_COLL, docId);
     await deleteDoc(docRef);
   } catch (error) {
     console.error("Error deleting activity from Firestore:", error);
@@ -146,7 +150,8 @@ export async function dbFetchTemplates(): Promise<any[] | null> {
     const querySnapshot = await getDocs(q);
     const list: any[] = [];
     querySnapshot.forEach((doc) => {
-      list.push({ ...doc.data(), id: doc.id });
+      const data = doc.data();
+      list.push({ ...data, id: data.id || doc.id.replace(`${uid}_`, '') });
     });
     return list.length > 0 ? list : null;
   } catch (error) {
@@ -161,7 +166,8 @@ export async function dbFetchTemplates(): Promise<any[] | null> {
 export async function dbSaveTemplate(template: any): Promise<void> {
   try {
     const uid = getOrCreateUserId();
-    const docRef = doc(db, TEMPLATES_COLL, template.id);
+    const docId = `${uid}_${template.id}`;
+    const docRef = doc(db, TEMPLATES_COLL, docId);
     await setDoc(docRef, {
       ...template,
       userId: uid,
@@ -177,7 +183,9 @@ export async function dbSaveTemplate(template: any): Promise<void> {
  */
 export async function dbDeleteTemplate(templateId: string): Promise<void> {
   try {
-    const docRef = doc(db, TEMPLATES_COLL, templateId);
+    const uid = getOrCreateUserId();
+    const docId = `${uid}_${templateId}`;
+    const docRef = doc(db, TEMPLATES_COLL, docId);
     await deleteDoc(docRef);
   } catch (error) {
     console.error("Error deleting template from Firestore:", error);
@@ -194,7 +202,8 @@ export async function dbFetchCompletedWorkouts(): Promise<any[] | null> {
     const querySnapshot = await getDocs(q);
     const list: any[] = [];
     querySnapshot.forEach((doc) => {
-      list.push({ ...doc.data(), id: doc.id });
+      const data = doc.data();
+      list.push({ ...data, id: data.id || doc.id.replace(`${uid}_`, '') });
     });
     // Sort descending by date
     return list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -210,7 +219,8 @@ export async function dbFetchCompletedWorkouts(): Promise<any[] | null> {
 export async function dbSaveCompletedWorkout(workout: any): Promise<void> {
   try {
     const uid = getOrCreateUserId();
-    const docRef = doc(db, COMPLETED_COLL, workout.id);
+    const docId = `${uid}_${workout.id}`;
+    const docRef = doc(db, COMPLETED_COLL, docId);
     await setDoc(docRef, {
       ...workout,
       userId: uid,
@@ -226,7 +236,9 @@ export async function dbSaveCompletedWorkout(workout: any): Promise<void> {
  */
 export async function dbDeleteCompletedWorkout(workoutId: string): Promise<void> {
   try {
-    const docRef = doc(db, COMPLETED_COLL, workoutId);
+    const uid = getOrCreateUserId();
+    const docId = `${uid}_${workoutId}`;
+    const docRef = doc(db, COMPLETED_COLL, docId);
     await deleteDoc(docRef);
   } catch (error) {
     console.error("Error deleting completed workout from Firestore:", error);
@@ -266,32 +278,45 @@ export async function dbMigrateDataToUser(
 
     // 2. Migrate custom and standard Activities
     for (const act of localData.activities) {
-      const docRef = doc(db, ACTIVITIES_COLL, act.id);
-      await setDoc(docRef, {
-        ...act,
-        userId: newUid,
-        updatedAt: new Date().toISOString()
-      });
+      const docId = `${newUid}_${act.id}`;
+      const docRef = doc(db, ACTIVITIES_COLL, docId);
+      // Only migrate if not already exists on server to prevent overwriting cloud state with local/device default
+      const docSnap = await getDoc(docRef);
+      if (!docSnap.exists()) {
+        await setDoc(docRef, {
+          ...act,
+          userId: newUid,
+          updatedAt: new Date().toISOString()
+        });
+      }
     }
 
     // 3. Migrate Templates
     for (const t of localData.templates) {
-      const docRef = doc(db, TEMPLATES_COLL, t.id);
-      await setDoc(docRef, {
-        ...t,
-        userId: newUid,
-        updatedAt: new Date().toISOString()
-      });
+      const docId = `${newUid}_${t.id}`;
+      const docRef = doc(db, TEMPLATES_COLL, docId);
+      const docSnap = await getDoc(docRef);
+      if (!docSnap.exists()) {
+        await setDoc(docRef, {
+          ...t,
+          userId: newUid,
+          updatedAt: new Date().toISOString()
+        });
+      }
     }
 
     // 4. Migrate Completed Workouts
     for (const comp of localData.completedWorkouts) {
-      const docRef = doc(db, COMPLETED_COLL, comp.id);
-      await setDoc(docRef, {
-        ...comp,
-        userId: newUid,
-        updatedAt: new Date().toISOString()
-      });
+      const docId = `${newUid}_${comp.id}`;
+      const docRef = doc(db, COMPLETED_COLL, docId);
+      const docSnap = await getDoc(docRef);
+      if (!docSnap.exists()) {
+        await setDoc(docRef, {
+          ...comp,
+          userId: newUid,
+          updatedAt: new Date().toISOString()
+        });
+      }
     }
 
     // Now fetch the absolute up-to-date states from Firestore for this user
@@ -301,19 +326,22 @@ export async function dbMigrateDataToUser(
     const actSnap = await getDocs(query(collection(db, ACTIVITIES_COLL), where('userId', '==', newUid)));
     const finalActivities: any[] = [];
     actSnap.forEach((doc) => {
-      finalActivities.push({ ...doc.data(), id: doc.id });
+      const data = doc.data();
+      finalActivities.push({ ...data, id: data.id || doc.id.replace(`${newUid}_`, '') });
     });
 
     const tempSnap = await getDocs(query(collection(db, TEMPLATES_COLL), where('userId', '==', newUid)));
     const finalTemplates: any[] = [];
     tempSnap.forEach((doc) => {
-      finalTemplates.push({ ...doc.data(), id: doc.id });
+      const data = doc.data();
+      finalTemplates.push({ ...data, id: data.id || doc.id.replace(`${newUid}_`, '') });
     });
 
     const compSnap = await getDocs(query(collection(db, COMPLETED_COLL), where('userId', '==', newUid)));
     const finalCompleted: any[] = [];
     compSnap.forEach((doc) => {
-      finalCompleted.push({ ...doc.data(), id: doc.id });
+      const data = doc.data();
+      finalCompleted.push({ ...data, id: data.id || doc.id.replace(`${newUid}_`, '') });
     });
 
     return {

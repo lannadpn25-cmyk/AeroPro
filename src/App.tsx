@@ -69,6 +69,7 @@ export default function App() {
   const [authIsSignUp, setAuthIsSignUp] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
   const [authSuccessMsg, setAuthSuccessMsg] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Helper for mock workouts
   const getDefaultCompletedWorkouts = (): CompletedWorkout[] => {
@@ -519,6 +520,28 @@ export default function App() {
                   </>
                 )}
               </button>
+
+              {/* Sync button shown when logged in */}
+              {user && (
+                <button
+                  onClick={async () => {
+                    if (isSyncing) return;
+                    setIsSyncing(true);
+                    try {
+                      await loadUserData();
+                    } catch (err) {
+                      console.error("Sync error:", err);
+                    } finally {
+                      setIsSyncing(false);
+                    }
+                  }}
+                  disabled={isSyncing}
+                  className="p-2 bg-[#151518] border border-white/10 hover:border-[#CCFF00]/40 text-white hover:bg-white/5 rounded-lg transition cursor-pointer flex items-center justify-center disabled:opacity-50"
+                  title="Sincronizar dados com a Nuvem"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 text-[#CCFF00] ${isSyncing ? 'animate-spin' : ''}`} />
+                </button>
+              )}
 
               <button 
                 onClick={() => {
