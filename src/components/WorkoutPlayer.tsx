@@ -60,6 +60,7 @@ export default function WorkoutPlayer({
   const lastAnnouncedChunkIndexRef = useRef<number>(-1);
   const lastBeepRemainingRef = useRef<number>(-1);
   const silentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const activeUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
   // Background audio keep-awake loop to prevent background sleep
   useEffect(() => {
@@ -114,13 +115,48 @@ export default function WorkoutPlayer({
   }, [template, chunks]);
 
   // Portuguese Speech Synthesis helper
-  const announceChunk = (chunk: WorkoutChunk) => {
+  const announceChunk = (chunk: WorkoutChunk, isTransition = false) => {
     if (voiceMode && !isMuted && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel(); // Stop any previous speech
-      const text = `Iniciando fase: ${chunk.name}. Velocidade sugerida: ${chunk.speedKmh} quilômetros por hora.`;
+      
+      // Wake up the browser audio subsystem to ensure background audio works
+      try {
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioContextClass) {
+          const tempCtx = new AudioContextClass();
+          const osc = tempCtx.createOscillator();
+          const gain = tempCtx.createGain();
+          gain.gain.setValueAtTime(0.001, tempCtx.currentTime);
+          osc.connect(gain);
+          gain.connect(tempCtx.destination);
+          osc.start();
+          osc.stop(tempCtx.currentTime + 0.05);
+        }
+      } catch (e) {
+        console.log("Could not trigger silent wake-up oscillator:", e);
+      }
+
+      let text = `Iniciando fase: ${chunk.name}. Velocidade sugerida: ${chunk.speedKmh} quilômetros por hora.`;
+      if (isTransition) {
+        text = `Trocar de atividade! Iniciando fase: ${chunk.name}. Velocidade sugerida: ${chunk.speedKmh} quilômetros por hora.`;
+      }
+      
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'pt-BR';
       utterance.rate = 1.0;
+      activeUtteranceRef.current = utterance;
+      
+      utterance.onend = () => {
+        if (activeUtteranceRef.current === utterance) {
+          activeUtteranceRef.current = null;
+        }
+      };
+      utterance.onerror = () => {
+        if (activeUtteranceRef.current === utterance) {
+          activeUtteranceRef.current = null;
+        }
+      };
+
       window.speechSynthesis.speak(utterance);
       setLastSpokenText(text);
     }
@@ -129,9 +165,41 @@ export default function WorkoutPlayer({
   const announceWorkoutComplete = () => {
     if (voiceMode && !isMuted && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
-      const text = `Parabéns! Treino concluído com sucesso. Agora, registre a sua distância e frequência cardíaca.`;
+      
+      // Wake up the browser audio subsystem to ensure background audio works
+      try {
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioContextClass) {
+          const tempCtx = new AudioContextClass();
+          const osc = tempCtx.createOscillator();
+          const gain = tempCtx.createGain();
+          gain.gain.setValueAtTime(0.001, tempCtx.currentTime);
+          osc.connect(gain);
+          gain.connect(tempCtx.destination);
+          osc.start();
+          osc.stop(tempCtx.currentTime + 0.05);
+        }
+      } catch (e) {
+        console.log("Could not trigger silent wake-up oscillator:", e);
+      }
+
+      const text = `Você encerrou o treino com sucesso! Parabéns pelo excelente trabalho.`;
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'pt-BR';
+      utterance.rate = 1.0;
+      activeUtteranceRef.current = utterance;
+
+      utterance.onend = () => {
+        if (activeUtteranceRef.current === utterance) {
+          activeUtteranceRef.current = null;
+        }
+      };
+      utterance.onerror = () => {
+        if (activeUtteranceRef.current === utterance) {
+          activeUtteranceRef.current = null;
+        }
+      };
+
       window.speechSynthesis.speak(utterance);
     }
   };
@@ -243,7 +311,8 @@ export default function WorkoutPlayer({
 
     // Voice announcement when entering a new chunk
     if (foundIndex !== lastAnnouncedChunkIndexRef.current) {
-      announceChunk(chunks[foundIndex]);
+      const isTransition = lastAnnouncedChunkIndexRef.current !== -1;
+      announceChunk(chunks[foundIndex], isTransition);
       lastAnnouncedChunkIndexRef.current = foundIndex;
     }
 
@@ -624,44 +693,48 @@ export default function WorkoutPlayer({
           )}
 
           {/* TIMER CONTROL BUTTONS (Underneath Gauge) */}
-          <div className="flex gap-4 items-center justify-center pt-4">
-            
-            {/* Cancel/Stop Button */}
-            <button
-              onClick={() => setShowCancelConfirm(true)}
-              className="p-3.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-full transition transform hover:scale-105 active:scale-95 flex items-center justify-center cursor-pointer"
-              title="Sair do treino"
-            >
-              <Square className="w-4 h-4 fill-red-400" />
-            </button>
+          {!isPlannedFinished && (
+            <>
+              <div className="flex gap-4 items-center justify-center pt-4">
+                
+                {/* Cancel/Stop Button */}
+                <button
+                  onClick={() => setShowCancelConfirm(true)}
+                  className="p-3.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-full transition transform hover:scale-105 active:scale-95 flex items-center justify-center cursor-pointer"
+                  title="Sair do treino"
+                >
+                  <Square className="w-4 h-4 fill-red-400" />
+                </button>
 
-            {/* Play/Pause (Matches second screenshot circular blue button) */}
-            <button
-              onClick={() => setIsPlaying(!isPlaying)}
-              className="p-5 bg-[#CCFF00] hover:bg-[#b3e000] text-black rounded-full transition transform hover:scale-110 active:scale-90 shadow-[0_0_20px_rgba(204,255,0,0.25)] flex flex-col items-center justify-center cursor-pointer animate-none"
-              id="btn-play-pause-timer"
-            >
-              {isPlaying ? (
-                <Pause className="w-6 h-6 fill-black stroke-black" />
-              ) : (
-                <Play className="w-6 h-6 fill-black stroke-black ml-0.5" />
-              )}
-            </button>
+                {/* Play/Pause (Matches second screenshot circular blue button) */}
+                <button
+                  onClick={() => setIsPlaying(!isPlaying)}
+                  className="p-5 bg-[#CCFF00] hover:bg-[#b3e000] text-black rounded-full transition transform hover:scale-110 active:scale-90 shadow-[0_0_20px_rgba(204,255,0,0.25)] flex flex-col items-center justify-center cursor-pointer animate-none"
+                  id="btn-play-pause-timer"
+                >
+                  {isPlaying ? (
+                    <Pause className="w-6 h-6 fill-black stroke-black" />
+                  ) : (
+                    <Play className="w-6 h-6 fill-black stroke-black ml-0.5" />
+                  )}
+                </button>
 
-            {/* Finish Workout Early Button */}
-            <button
-              onClick={handleFinishEarly}
-              className="p-3.5 bg-[#CCFF00]/10 hover:bg-[#CCFF00]/20 text-[#CCFF00] border border-[#CCFF00]/20 rounded-full transition transform hover:scale-105 active:scale-95 flex items-center justify-center cursor-pointer font-bold"
-              title="Finalizar Treino"
-            >
-              <CheckCircle className="w-4 h-4" />
-            </button>
+                {/* Finish Workout Early Button */}
+                <button
+                  onClick={handleFinishEarly}
+                  className="p-3.5 bg-[#CCFF00]/10 hover:bg-[#CCFF00]/20 text-[#CCFF00] border border-[#CCFF00]/20 rounded-full transition transform hover:scale-105 active:scale-95 flex items-center justify-center cursor-pointer font-bold"
+                  title="Finalizar Treino"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                </button>
 
-          </div>
-          
-          <span className="text-white/40 text-[10px] font-bold uppercase tracking-wider mt-1">
-            {isPlaying ? 'Pausar' : 'Retomar'}
-          </span>
+              </div>
+              
+              <span className="text-white/40 text-[10px] font-bold uppercase tracking-wider mt-1">
+                {isPlaying ? 'Pausar' : 'Retomar'}
+              </span>
+            </>
+          )}
 
         </div>
       ) : (
