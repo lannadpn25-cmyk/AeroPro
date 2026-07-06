@@ -472,7 +472,7 @@ export default function WorkoutList({
                         </div>
                       </div>
  
-                      {/* Action buttons (Edit/Delete) placed absolutely in the top corner for perfect layout control */}
+                      {/* Action buttons (Edit/Duplicate/Delete) placed absolutely in the top corner for perfect layout control */}
                       <div className="absolute top-4 right-4 flex items-center gap-1">
                         <button
                           onClick={() => handleEditClick(template)}
@@ -480,6 +480,23 @@ export default function WorkoutList({
                           title="Editar treino"
                         >
                           <Pencil className="w-4 h-4" />
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            const newTemplate: WorkoutTemplate = {
+                              ...template,
+                              id: `temp-${Date.now()}-${Math.random()}`,
+                              name: `${template.name} (Cópia)`,
+                              chunks: template.chunks ? template.chunks.map(c => ({ ...c, id: `c-${Date.now()}-${Math.random()}` })) : undefined,
+                              strengthExercises: template.strengthExercises ? template.strengthExercises.map(s => ({ ...s, id: `se-${Date.now()}-${Math.random()}` })) : undefined
+                            };
+                            onAddTemplate(newTemplate);
+                          }}
+                          className="p-1.5 text-white/30 hover:text-blue-400 rounded-lg hover:bg-white/5 transition cursor-pointer"
+                          title="Duplicar treino"
+                        >
+                          <Copy className="w-4 h-4" />
                         </button>
  
                         <button
