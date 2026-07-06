@@ -127,13 +127,7 @@ export default function WorkoutList({
       id: `c-dup-${Date.now()}-${Math.random()}`,
       name: chunk.name
     };
-    setChunks(prev => {
-      const idx = prev.findIndex(c => c.id === chunk.id);
-      if (idx === -1) return [...prev, duplicated];
-      const newChunks = [...prev];
-      newChunks.splice(idx + 1, 0, duplicated);
-      return newChunks;
-    });
+    setChunks(prev => [...prev, duplicated]);
   };
 
   const handleDragStart = (e: React.DragEvent, index: number) => {
@@ -182,13 +176,7 @@ export default function WorkoutList({
       id: `se-dup-${Date.now()}-${Math.random()}`,
       name: ex.name
     };
-    setStrengthExs(prev => {
-      const idx = prev.findIndex(se => se.id === ex.id);
-      if (idx === -1) return [...prev, duplicated];
-      const newExs = [...prev];
-      newExs.splice(idx + 1, 0, duplicated);
-      return newExs;
-    });
+    setStrengthExs(prev => [...prev, duplicated]);
   };
 
   const handleExDragStart = (e: React.DragEvent, index: number) => {

@@ -24,6 +24,7 @@ export default function WorkoutPlayer({
   // Workout state
   const [isPlaying, setIsPlaying] = useState(true);
   const [isCompleted, setIsCompleted] = useState(false);
+  const [isPlannedFinished, setIsPlannedFinished] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showFinishConfirm, setShowFinishConfirm] = useState(false);
   
@@ -49,7 +50,7 @@ export default function WorkoutPlayer({
   const [splashCountdown, setSplashCountdown] = useState<number | null>(3);
 
   const chunks = template.chunks || [];
-  const currentChunk = chunks[activeChunkIndex] as WorkoutChunk | undefined;
+  const currentChunk = (chunks[activeChunkIndex] || chunks[chunks.length - 1]) as WorkoutChunk | undefined;
 
   // Track the total expected seconds for progress calculation (Aerobic)
   const totalPlannedSeconds = chunks.reduce((sum, c) => sum + c.durationMinutes * 60, 0);
@@ -102,9 +103,13 @@ export default function WorkoutPlayer({
       setActiveChunkIndex(0);
       setTimeRemainingInChunk(chunks[0].durationMinutes * 60);
       setTotalSecondsElapsed(0);
+      setIsPlannedFinished(false);
       lastAnnouncedChunkIndexRef.current = -1;
       lastBeepRemainingRef.current = -1;
       lastTickRef.current = Date.now();
+    } else {
+      setTotalSecondsElapsed(0);
+      setIsPlannedFinished(false);
     }
   }, [template, chunks]);
 
@@ -207,14 +212,15 @@ export default function WorkoutPlayer({
     }
 
     if (completed) {
-      if (!isCompleted) {
+      if (!isPlannedFinished) {
         if (!isMuted) {
           playBeep(1500, 0.4);
           setTimeout(() => playBeep(1500, 0.4), 200);
         }
-        setIsCompleted(true);
+        setIsPlannedFinished(true);
         announceWorkoutComplete();
       }
+      setTimeRemainingInChunk(0);
       return;
     }
 
@@ -241,7 +247,7 @@ export default function WorkoutPlayer({
       lastAnnouncedChunkIndexRef.current = foundIndex;
     }
 
-  }, [totalSecondsElapsed, chunks, template.type, isCompleted, splashCountdown, isMuted, activeChunkIndex]);
+  }, [totalSecondsElapsed, chunks, template.type, isCompleted, splashCountdown, isMuted, activeChunkIndex, isPlannedFinished]);
 
   // Handle Strength series completion
   const handleNextSet = () => {
@@ -261,8 +267,14 @@ export default function WorkoutPlayer({
         if (!isMuted) playBeep(1200, 0.25);
       } else {
         // Last exercise and last set done!
-        setIsCompleted(true);
-        announceWorkoutComplete();
+        if (!isPlannedFinished) {
+          if (!isMuted) {
+            playBeep(1500, 0.4);
+            setTimeout(() => playBeep(1500, 0.4), 200);
+          }
+          setIsPlannedFinished(true);
+          announceWorkoutComplete();
+        }
       }
     }
   };
@@ -399,15 +411,33 @@ export default function WorkoutPlayer({
 
                 {/* Text inside Ring (Matches "36% / 74 Dias" look but for timing) */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center space-y-1">
-                  <span className="text-4xl font-black text-white tracking-tighter font-mono">
-                    {formatTime(timeRemainingInChunk)}
-                  </span>
-                  <span className="text-white/40 text-[10px] font-bold uppercase tracking-widest">
-                    {currentChunk.name}
-                  </span>
-                  <span className="bg-[#CCFF00]/10 text-[#CCFF00] text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-lg border border-[#CCFF00]/20 mt-2 font-mono">
-                    {currentChunk.speedKmh} km/h
-                  </span>
+                  {isPlannedFinished ? (
+                    <>
+                      <span className="text-4xl font-black text-[#CCFF00] tracking-tighter font-mono animate-pulse">
+                        +{formatTime(Math.max(0, totalSecondsElapsed - totalPlannedSeconds))}
+                      </span>
+                      <span className="text-emerald-400 text-[10px] font-bold uppercase tracking-widest bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full">
+                        Tempo Extra
+                      </span>
+                      <span className="bg-[#CCFF00]/10 text-[#CCFF00] text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-lg border border-[#CCFF00]/20 mt-2 font-mono">
+                        Livre
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-4xl font-black text-white tracking-tighter font-mono">
+                        {formatTime(timeRemainingInChunk)}
+                      </span>
+                      <span className="text-white/40 text-[10px] font-bold uppercase tracking-widest truncate max-w-[150px]">
+                        {currentChunk ? currentChunk.name : ''}
+                      </span>
+                      {currentChunk && (
+                        <span className="bg-[#CCFF00]/10 text-[#CCFF00] text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-lg border border-[#CCFF00]/20 mt-2 font-mono">
+                          {currentChunk.speedKmh} km/h
+                        </span>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -478,35 +508,57 @@ export default function WorkoutPlayer({
                   <div className="w-full space-y-6 text-center">
                     
                     {/* Visual Round Tracker */}
-                    <div className="inline-flex flex-col items-center justify-center p-8 bg-purple-500/5 border border-purple-500/20 rounded-full w-44 h-44 relative">
-                      <span className="text-white/40 text-[10px] font-bold uppercase tracking-wider block">Série Ativa</span>
-                      <span className="text-5xl font-black text-white font-mono my-1">
-                        {currentSet}
-                      </span>
-                      <span className="text-white/40 text-[9px] font-bold uppercase">
-                        DE {currentEx.series} SÉRIES
-                      </span>
-                    </div>
+                    {isPlannedFinished ? (
+                      <div className="inline-flex flex-col items-center justify-center p-8 bg-emerald-500/5 border border-emerald-500/25 rounded-full w-44 h-44 relative animate-pulse">
+                        <Award className="w-8 h-8 text-[#CCFF00] mb-1" />
+                        <span className="text-white font-black text-sm uppercase tracking-tight font-display italic">
+                          CONCLUÍDO!
+                        </span>
+                        <span className="text-[#CCFF00]/80 text-[9px] font-bold uppercase mt-1 tracking-wider">
+                          Séries Planejadas
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="inline-flex flex-col items-center justify-center p-8 bg-purple-500/5 border border-purple-500/20 rounded-full w-44 h-44 relative">
+                        <span className="text-white/40 text-[10px] font-bold uppercase tracking-wider block">Série Ativa</span>
+                        <span className="text-5xl font-black text-white font-mono my-1">
+                          {currentSet}
+                        </span>
+                        <span className="text-white/40 text-[9px] font-bold uppercase">
+                          DE {currentEx.series} SÉRIES
+                        </span>
+                      </div>
+                    )}
 
                     <div className="space-y-2">
-                      <span className="bg-purple-500/10 text-purple-400 text-[10px] font-bold tracking-wider uppercase px-2.5 py-0.5 rounded-full border border-purple-500/20">
-                        Exercício de Força
+                      <span className={`text-[10px] font-bold tracking-wider uppercase px-2.5 py-0.5 rounded-full border ${
+                        isPlannedFinished 
+                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+                          : 'bg-purple-500/10 text-purple-400 border-purple-500/20'
+                      }`}>
+                        {isPlannedFinished ? 'Meta de Força Concluída' : 'Exercício de Força'}
                       </span>
                       <h3 className="text-2xl font-black text-white tracking-tight uppercase font-display">
-                        {currentEx.name}
+                        {isPlannedFinished ? 'Excelente Trabalho!' : currentEx.name}
                       </h3>
-                      <p className="text-white/40 text-sm">
-                        Meta: <span className="text-[#CCFF00] font-black font-mono">{currentEx.reps}</span> REPS
-                        {currentEx.weightKg ? ` • ${currentEx.weightKg} KG` : ''}
-                      </p>
+                      {!isPlannedFinished ? (
+                        <p className="text-white/40 text-sm">
+                          Meta: <span className="text-[#CCFF00] font-black font-mono">{currentEx.reps}</span> REPS
+                          {currentEx.weightKg ? ` • ${currentEx.weightKg} KG` : ''}
+                        </p>
+                      ) : (
+                        <p className="text-white/40 text-xs px-6 leading-relaxed max-w-sm mx-auto">
+                          Todos os exercícios planejados foram concluídos. Você pode realizar séries extras (o cronômetro continuará contando) ou salvar abaixo.
+                        </p>
+                      )}
                     </div>
 
                     {/* Progress Checklist */}
                     <div className="bg-black/40 p-4 border border-white/5 rounded-xl max-w-sm mx-auto text-left space-y-2">
                       <span className="text-[10px] text-white/40 uppercase tracking-widest block font-bold">Roteiro de Treino</span>
                       {exercises.map((ex, idx) => {
-                        const isDone = idx < activeExerciseIndex;
-                        const isCurrent = idx === activeExerciseIndex;
+                        const isDone = isPlannedFinished || idx < activeExerciseIndex;
+                        const isCurrent = !isPlannedFinished && idx === activeExerciseIndex;
                         return (
                           <div 
                             key={ex.id}
@@ -514,21 +566,34 @@ export default function WorkoutPlayer({
                               isCurrent ? 'bg-purple-500/10 border-purple-500/20 font-bold text-white' : 'text-neutral-400'
                             }`}
                           >
-                            <span className={isDone ? 'line-through opacity-40' : ''}>{idx + 1}. {ex.name}</span>
+                            <span className={isDone ? 'line-through opacity-40 text-emerald-400/75' : ''}>{idx + 1}. {ex.name}</span>
                             <span className="font-mono">{ex.series}x{ex.reps}</span>
                           </div>
                         );
                       })}
                     </div>
 
-                    {/* Completion of series button */}
-                    <button
-                      onClick={handleNextSet}
-                      className="w-full max-w-sm py-3 bg-purple-500 hover:bg-purple-600 text-white rounded font-black text-xs uppercase tracking-widest transition transform active:scale-95 shadow-lg shadow-purple-500/10 cursor-pointer flex items-center justify-center gap-2"
-                    >
-                      <CheckCircle className="w-4 h-4" />
-                      Concluir Série #{currentSet}
-                    </button>
+                    {/* Completion of series button or End Workout */}
+                    {!isPlannedFinished ? (
+                      <button
+                        onClick={handleNextSet}
+                        className="w-full max-w-sm py-3 bg-purple-500 hover:bg-purple-600 text-white rounded font-black text-xs uppercase tracking-widest transition transform active:scale-95 shadow-lg shadow-purple-500/10 cursor-pointer flex items-center justify-center gap-2"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        Concluir Série #{currentSet}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setIsCompleted(true);
+                          announceWorkoutComplete();
+                        }}
+                        className="w-full max-w-sm py-3.5 bg-[#CCFF00] hover:bg-[#b3e000] text-black rounded font-black text-xs uppercase tracking-widest transition transform active:scale-95 shadow-lg shadow-[#CCFF00]/10 cursor-pointer flex items-center justify-center gap-2 font-display italic"
+                      >
+                        <Award className="w-4 h-4" />
+                        Salvar e Registrar Treino
+                      </button>
+                    )}
 
                   </div>
                 );
@@ -539,6 +604,22 @@ export default function WorkoutPlayer({
                 <span className="font-mono font-bold text-white">{formatTime(totalSecondsElapsed)}</span>
               </div>
 
+            </div>
+          )}
+
+          {/* Big high-contrast direct save button for aerobic workouts when they are in overtime */}
+          {template.type === 'aerobic' && isPlannedFinished && (
+            <div className="w-full max-w-sm px-2 pt-2">
+              <button
+                onClick={() => {
+                  setIsCompleted(true);
+                  announceWorkoutComplete();
+                }}
+                className="w-full py-3.5 bg-[#CCFF00] hover:bg-[#b3e000] text-black rounded-xl font-black text-sm uppercase tracking-wider transition transform active:scale-95 shadow-[0_0_20px_rgba(204,255,0,0.3)] cursor-pointer flex items-center justify-center gap-2 font-display italic"
+              >
+                <Award className="w-5 h-5" />
+                Finalizar e Registrar Treino
+              </button>
             </div>
           )}
 
@@ -632,12 +713,11 @@ export default function WorkoutPlayer({
             <div className="space-y-1.5">
               <label className="text-white/40 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5">
                 <Heart className="w-3.5 h-3.5 text-rose-500" />
-                Qual foi a sua frequência cardíaca média? (BPM)
+                Qual foi a sua frequência cardíaca média? (BPM) - Opcional
               </label>
               <input
                 type="number"
-                required
-                placeholder="Ex: 142"
+                placeholder="Ex: 142 (Opcional)"
                 value={avgHeartRate}
                 onChange={e => setAvgHeartRate(e.target.value)}
                 className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[#CCFF00]/50 text-sm font-semibold font-mono"
