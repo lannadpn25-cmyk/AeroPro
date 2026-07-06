@@ -329,7 +329,6 @@ export default function App() {
                 <h1 className="text-lg font-black tracking-tighter text-white leading-none uppercase italic font-display">
                   AERO-X <span className="text-[#CCFF00] underline decoration-[#CCFF00] decoration-2">PRO</span>
                 </h1>
-                <p className="text-[9px] text-white/40 font-bold uppercase tracking-[0.2em] mt-0.5">Evolução Cardiovascular</p>
               </div>
             </div>
 

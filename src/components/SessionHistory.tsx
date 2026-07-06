@@ -23,6 +23,16 @@ export default function SessionHistory({ completedWorkouts, onDeleteSession, onU
   const [editHeartRate, setEditHeartRate] = useState<string>('');
   const [editDistance, setEditDistance] = useState<string>('');
 
+  // Toggle show/hide aerobic chunks list (default hidden)
+  const [visibleChunks, setVisibleChunks] = useState<Record<string, boolean>>({});
+
+  const toggleChunksVisibility = (sessionId: string) => {
+    setVisibleChunks(prev => ({
+      ...prev,
+      [sessionId]: !prev[sessionId]
+    }));
+  };
+
   // Filter sessions
   const filteredSessions = [...completedWorkouts]
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
@@ -53,7 +63,6 @@ export default function SessionHistory({ completedWorkouts, onDeleteSession, onU
       {/* Title */}
       <div className="space-y-1">
         <h1 className="text-3xl font-black text-white uppercase font-display tracking-tight italic">Histórico de Treinos</h1>
-        <p className="text-white/40 text-[10px] font-bold uppercase tracking-wider block">Acompanhe todos os seus treinos realizados e evolução cardiovascular</p>
       </div>
 
       {/* Filters bar */}
@@ -225,15 +234,36 @@ export default function SessionHistory({ completedWorkouts, onDeleteSession, onU
                     {/* Original Workout plan list */}
                     {session.chunks && session.chunks.length > 0 && (
                       <div className="space-y-2">
-                        <span className="text-white/40 text-[10px] font-bold uppercase tracking-wider block">Roteiro Aeróbico Realizado</span>
-                        <div className="bg-black/40 rounded-xl p-3 border border-white/5 space-y-1.5">
-                          {session.chunks.map((chunk, idx) => (
-                            <div key={idx} className="flex justify-between items-center text-xs text-white/80 py-1 border-b border-white/5 last:border-0">
-                              <span className="font-semibold uppercase tracking-wide text-white">Fase #{idx + 1}: {chunk.name}</span>
-                              <span className="text-white/60 font-mono">{chunk.durationMinutes} min • {chunk.speedKmh} km/h</span>
-                            </div>
-                          ))}
-                        </div>
+                        <button
+                          onClick={() => toggleChunksVisibility(session.id)}
+                          className="flex items-center justify-between w-full text-left text-white/40 hover:text-white transition duration-200 cursor-pointer group"
+                        >
+                          <span className="text-[10px] font-bold uppercase tracking-wider block">
+                            Roteiro Aeróbico Realizado
+                          </span>
+                          <span className="flex items-center gap-1 text-[10px] font-mono text-white/30 group-hover:text-white/60 transition duration-200">
+                            {visibleChunks[session.id] ? (
+                              <>
+                                Ocultar <ChevronUp className="w-3.5 h-3.5 text-[#CCFF00]" />
+                              </>
+                            ) : (
+                              <>
+                                Exibir ({session.chunks.length} {session.chunks.length === 1 ? 'fase' : 'fases'}) <ChevronDown className="w-3.5 h-3.5" />
+                              </>
+                            )}
+                          </span>
+                        </button>
+                        
+                        {visibleChunks[session.id] && (
+                          <div className="bg-black/40 rounded-xl p-3 border border-white/5 space-y-1.5 animate-fade-in">
+                            {session.chunks.map((chunk, idx) => (
+                              <div key={idx} className="flex justify-between items-center text-xs text-white/80 py-1 border-b border-white/5 last:border-0">
+                                <span className="font-semibold uppercase tracking-wide text-white">Fase #{idx + 1}: {chunk.name}</span>
+                                <span className="text-white/60 font-mono">{chunk.durationMinutes} min • {chunk.speedKmh} km/h</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
 

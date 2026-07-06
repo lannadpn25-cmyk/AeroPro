@@ -47,7 +47,6 @@ export default function ReportView({ completedWorkouts, weeklyGoals }: ReportVie
             <Sparkles className="w-5 h-5 text-[#CCFF00]" />
             Configurações do Relatório
           </h2>
-          <p className="text-white/40 text-[10px] font-bold uppercase tracking-wider">Insira os nomes para personalizar a assinatura e o cabeçalho do documento</p>
         </div>
  
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -105,7 +104,7 @@ export default function ReportView({ completedWorkouts, weeklyGoals }: ReportVie
         {/* Header Block */}
         <div className="flex justify-between items-start border-b-2 border-neutral-900 pb-6">
           <div className="space-y-1">
-            <span className="text-lime-600 font-extrabold text-sm uppercase tracking-widest block">Relatório de Evolução Cardiovascular</span>
+            <span className="text-lime-600 font-extrabold text-sm uppercase tracking-widest block">Relatório de Treinos</span>
             <h1 className="text-3xl font-black text-neutral-950 tracking-tight">AEROPROGRESS</h1>
             <p className="text-neutral-500 text-xs">Treinamento Aeróbico Sistêmico & Cargas Intervaladas</p>
           </div>

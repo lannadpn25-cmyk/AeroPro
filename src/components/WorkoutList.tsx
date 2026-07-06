@@ -395,7 +395,6 @@ export default function WorkoutList({
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
             <div>
               <h1 className="text-3xl font-black text-white font-display tracking-tighter uppercase italic">Escolha Seu Treino</h1>
-              <p className="text-white/40 text-[10px] tracking-wider uppercase font-bold">Selecione uma atividade para iniciar seu cronômetro de performance</p>
             </div>
             
             <div className="flex gap-2">
