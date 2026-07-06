@@ -488,6 +488,27 @@ export default function WorkoutPlayer({
             </button>
           </div>
 
+          {/* Unified High-Contrast Upper Stats Card */}
+          <div className="w-full grid grid-cols-2 gap-4 bg-white/[0.02] p-4 rounded-xl border border-white/5 shadow-inner">
+            <div className="text-center flex flex-col items-center justify-center">
+              <span className="text-white/40 text-[9px] font-bold uppercase tracking-widest flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-[#CCFF00]" /> Tempo Decorrido
+              </span>
+              <span className="text-xl font-black text-white font-mono mt-1">{formatTime(totalSecondsElapsed)}</span>
+            </div>
+            <div className="text-center border-l border-white/5 flex flex-col items-center justify-center">
+              <span className="text-white/40 text-[9px] font-bold uppercase tracking-widest flex items-center gap-1.5">
+                <Flame className="w-3.5 h-3.5 text-[#CCFF00]" /> Meta Total
+              </span>
+              <span className="text-xl font-black text-[#CCFF00] font-mono mt-1">
+                {template.type === 'aerobic' 
+                  ? `${template.targetValue} ${template.targetUnit === 'minutes' ? 'MIN' : 'KM'}`
+                  : `${template.targetValue} MIN`
+                }
+              </span>
+            </div>
+          </div>
+
           {/* AEROBIC TYPE INTERFACE */}
           {template.type === 'aerobic' && currentChunk && (
             <div className="w-full flex flex-col items-center space-y-4">
@@ -587,20 +608,6 @@ export default function WorkoutPlayer({
                       </div>
                     );
                   })}
-                </div>
-              </div>
-
-              {/* Cumulative stats tracker */}
-              <div className="w-full grid grid-cols-2 gap-4 bg-black/40 p-4 rounded-xl border border-white/5">
-                <div className="text-center">
-                  <span className="text-white/40 text-[10px] font-bold uppercase tracking-wider block">Tempo Decorrido</span>
-                  <span className="text-xl font-bold text-white font-mono">{formatTime(totalSecondsElapsed)}</span>
-                </div>
-                <div className="text-center border-l border-white/5">
-                  <span className="text-white/40 text-[10px] font-bold uppercase tracking-wider block">Meta Total</span>
-                  <span className="text-xl font-bold text-[#CCFF00] font-mono">
-                    {template.targetValue} {template.targetUnit === 'minutes' ? 'MIN' : 'KM'}
-                  </span>
                 </div>
               </div>
 
@@ -712,11 +719,6 @@ export default function WorkoutPlayer({
                   </div>
                 );
               })()}
-
-              <div className="w-full border-t border-neutral-800/80 pt-4 flex justify-between text-sm text-neutral-400">
-                <span>Cronômetro total:</span>
-                <span className="font-mono font-bold text-white">{formatTime(totalSecondsElapsed)}</span>
-              </div>
 
             </div>
           )}
