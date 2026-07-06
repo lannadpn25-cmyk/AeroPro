@@ -486,21 +486,20 @@ export default function WorkoutPlayer({
       
       {/* Active Workout Screen */}
       {!isCompleted ? (
-        <div className="bg-[#151518] border border-white/5 rounded-2xl p-6 md:p-8 space-y-8 flex flex-col items-center relative overflow-hidden">
+        <div className="bg-[#151518] border border-white/5 rounded-2xl p-6 md:p-8 space-y-3 flex flex-col items-center relative overflow-hidden">
           
           {/* Header Activity Title */}
-          <div className="w-full flex justify-between items-center pb-4 border-b border-white/5">
+          <div className="w-full flex justify-between items-center pb-2 border-b border-white/5">
             <div className="flex items-center gap-2.5">
               <span className="animate-pulse flex h-2 w-2 rounded-full bg-[#CCFF00]" />
               <div>
-                <span className="text-white/40 text-[10px] font-bold uppercase tracking-wider block">TREINANDO AGORA</span>
                 <h2 className="text-lg font-black text-white uppercase tracking-tight font-display">{template.name}</h2>
               </div>
             </div>
 
             <button
               onClick={() => setIsMuted(!isMuted)}
-              className="p-2.5 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white rounded-lg border border-white/10 transition"
+              className="p-1.5 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white rounded-lg border border-white/10 transition"
               title={isMuted ? "Ativar áudio" : "Mutar áudio"}
             >
               {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4 text-[#CCFF00]" />}
@@ -511,7 +510,7 @@ export default function WorkoutPlayer({
           <div className="w-full grid grid-cols-2 gap-4 bg-white/[0.02] p-4 rounded-xl border border-white/5 shadow-inner">
             <div className="text-center flex flex-col items-center justify-center">
               <span className="text-white/40 text-[9px] font-bold uppercase tracking-widest flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-[#CCFF00]" /> Tempo Decorrido
+                <Clock className="w-3.5 h-3.5 text-[#CCFF00]" /> Tempo
               </span>
               <span className="text-xl font-black text-white font-mono mt-1">{formatTime(totalSecondsElapsed)}</span>
             </div>
@@ -530,7 +529,7 @@ export default function WorkoutPlayer({
 
           {/* AEROBIC TYPE INTERFACE */}
           {template.type === 'aerobic' && currentChunk && (
-            <div className="w-full flex flex-col items-center space-y-4">
+            <div className="w-full flex flex-col items-center space-y-2">
               
               {/* SEGMENTED PROGRESS RING (Matches provided images exactly) */}
               <div className="relative flex items-center justify-center w-64 h-64" id="segmented-circular-gauge">
@@ -626,7 +625,7 @@ export default function WorkoutPlayer({
 
           {/* STRENGTH TYPE INTERFACE */}
           {template.type === 'strength' && (
-            <div className="w-full flex flex-col items-center space-y-6">
+            <div className="w-full flex flex-col items-center space-y-3">
               
               {/* Strength active exercise detail */}
               {(() => {
@@ -636,7 +635,7 @@ export default function WorkoutPlayer({
                 if (!currentEx) return <p className="text-neutral-400">Nenhum exercício configurado.</p>;
 
                 return (
-                  <div className="w-full space-y-6 text-center">
+                  <div className="w-full space-y-3 text-center">
                     
                     {/* Visual Round Tracker */}
                     {isPlannedFinished ? (
