@@ -268,6 +268,23 @@ export default function App() {
     await dbDeleteCompletedWorkout(id);
   };
 
+  const handleUpdateSession = async (id: string, updatedFields: Partial<CompletedWorkout>) => {
+    const updated = completedWorkouts.map(session => {
+      if (session.id === id) {
+        return { ...session, ...updatedFields };
+      }
+      return session;
+    });
+    setCompletedWorkouts(updated);
+    localStorage.setItem('aeroprogress_completed', JSON.stringify(updated));
+    
+    // Find full updated session and save to Firestore
+    const fullUpdated = updated.find(s => s.id === id);
+    if (fullUpdated) {
+      await dbSaveCompletedWorkout(fullUpdated);
+    }
+  };
+
   const saveGoals = async (newGoals: WeeklyGoals) => {
     setWeeklyGoals(newGoals);
     localStorage.setItem('aeroprogress_goals', JSON.stringify(newGoals));
@@ -385,6 +402,7 @@ export default function App() {
               <SessionHistory
                 completedWorkouts={completedWorkouts}
                 onDeleteSession={handleDeleteSession}
+                onUpdateSession={handleUpdateSession}
                 activities={activities}
               />
             )}

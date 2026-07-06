@@ -2,19 +2,26 @@ import React, { useState } from 'react';
 import { CompletedWorkout, Activity } from '../types';
 import { ActivityIcon } from './WorkoutList';
 import { 
-  History, Calendar, Milestone, Heart, Clock, Trash2, Search, Filter, ChevronDown, ChevronUp, AlertCircle 
+  History, Calendar, Milestone, Heart, Clock, Trash2, Search, Filter, ChevronDown, ChevronUp, AlertCircle, Edit2 
 } from 'lucide-react';
 
 interface SessionHistoryProps {
   completedWorkouts: CompletedWorkout[];
   onDeleteSession: (id: string) => void;
+  onUpdateSession: (id: string, updatedFields: Partial<CompletedWorkout>) => void;
   activities: Activity[];
 }
 
-export default function SessionHistory({ completedWorkouts, onDeleteSession, activities }: SessionHistoryProps) {
+export default function SessionHistory({ completedWorkouts, onDeleteSession, onUpdateSession, activities }: SessionHistoryProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null);
   const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null);
+
+  // Edit fields state
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+  const [editWorkoutName, setEditWorkoutName] = useState('');
+  const [editHeartRate, setEditHeartRate] = useState<string>('');
+  const [editDistance, setEditDistance] = useState<string>('');
 
   // Filter sessions
   const filteredSessions = [...completedWorkouts]
@@ -256,12 +263,24 @@ export default function SessionHistory({ completedWorkouts, onDeleteSession, act
                     )}
 
                     {/* Actions */}
-                    <div className="flex justify-end pt-2 border-t border-white/5">
+                    <div className="flex justify-end pt-2 border-t border-white/5 gap-3">
+                      <button
+                        onClick={() => {
+                          setEditingSessionId(session.id);
+                          setEditWorkoutName(session.workoutName);
+                          setEditHeartRate(session.avgHeartRateBpm ? String(session.avgHeartRateBpm) : '');
+                          setEditDistance(session.actualDistanceKm ? String(session.actualDistanceKm) : '');
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-[#CCFF00]/10 hover:bg-[#CCFF00]/20 text-[#CCFF00] rounded-lg text-[10px] uppercase font-black tracking-widest transition cursor-pointer"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                        Editar Registro
+                      </button>
                       <button
                         onClick={() => {
                           setDeletingSessionId(session.id);
                         }}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-[10px] uppercase font-black tracking-widest transition"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-[10px] uppercase font-black tracking-widest transition cursor-pointer"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                         Remover Registro
@@ -304,6 +323,88 @@ export default function SessionHistory({ completedWorkouts, onDeleteSession, act
                 className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded font-bold text-xs uppercase tracking-wider transition cursor-pointer"
               >
                 Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Modal for Editing Completed Workout */}
+      {editingSessionId && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-[#151518] border border-white/10 rounded-2xl p-6 max-w-md w-full space-y-6 shadow-2xl animate-fade-in">
+            <div className="flex items-center gap-2 pb-2 border-b border-white/5">
+              <div className="p-2 bg-[#CCFF00]/10 text-[#CCFF00] rounded-lg border border-[#CCFF00]/20">
+                <Edit2 className="w-4 h-4" />
+              </div>
+              <div className="text-left">
+                <h3 className="text-sm font-black text-white uppercase font-display italic">Editar Treino Realizado</h3>
+                <p className="text-white/40 text-[9px] font-bold uppercase tracking-wider">Ajuste os dados registrados da sua atividade</p>
+              </div>
+            </div>
+
+            <div className="space-y-4 text-left">
+              {/* Name */}
+              <div className="space-y-1.5">
+                <label className="text-white/50 text-[10px] font-bold uppercase tracking-wider block">Nome do Treino</label>
+                <input
+                  type="text"
+                  value={editWorkoutName}
+                  onChange={e => setEditWorkoutName(e.target.value)}
+                  className="w-full bg-black/40 border border-white/5 text-sm text-white rounded-xl px-4 py-3 focus:outline-none focus:border-[#CCFF00]/50 font-sans"
+                  placeholder="Ex: Corrida na Esteira"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                {/* Distance */}
+                <div className="space-y-1.5">
+                  <label className="text-white/50 text-[10px] font-bold uppercase tracking-wider block">Distância (KM)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editDistance}
+                    onChange={e => setEditDistance(e.target.value)}
+                    className="w-full bg-black/40 border border-white/5 text-sm text-white rounded-xl px-4 py-3 focus:outline-none focus:border-[#CCFF00]/50 font-mono"
+                    placeholder="Ex: 5.2"
+                  />
+                </div>
+
+                {/* Heart Rate */}
+                <div className="space-y-1.5">
+                  <label className="text-white/50 text-[10px] font-bold uppercase tracking-wider block">Freq. Cardíaca (BPM)</label>
+                  <input
+                    type="number"
+                    step="1"
+                    value={editHeartRate}
+                    onChange={e => setEditHeartRate(e.target.value)}
+                    className="w-full bg-black/40 border border-white/5 text-sm text-white rounded-xl px-4 py-3 focus:outline-none focus:border-[#CCFF00]/50 font-mono"
+                    placeholder="Ex: 145"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setEditingSessionId(null)}
+                className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl font-bold text-xs uppercase tracking-wider border border-white/10 transition cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => {
+                  if (!editWorkoutName.trim()) return;
+                  onUpdateSession(editingSessionId, {
+                    workoutName: editWorkoutName.trim(),
+                    actualDistanceKm: editDistance ? parseFloat(editDistance) : undefined,
+                    avgHeartRateBpm: editHeartRate ? parseInt(editHeartRate, 10) : undefined
+                  });
+                  setEditingSessionId(null);
+                }}
+                className="flex-1 py-3 bg-[#CCFF00] hover:bg-[#b3e000] text-black rounded-xl font-black text-xs uppercase tracking-wider shadow-[0_0_20px_rgba(204,255,0,0.15)] transition cursor-pointer"
+              >
+                Salvar
               </button>
             </div>
           </div>

@@ -49,11 +49,12 @@ export default function WorkoutPlayer({
   // Splash countdown state
   const [splashCountdown, setSplashCountdown] = useState<number | null>(3);
 
-  const chunks = template.chunks || [];
+  const [currentWorkoutChunks, setCurrentWorkoutChunks] = useState<WorkoutChunk[]>([]);
+  const chunks = currentWorkoutChunks;
   const currentChunk = (chunks[activeChunkIndex] || chunks[chunks.length - 1]) as WorkoutChunk | undefined;
 
   // Track the total expected seconds for progress calculation (Aerobic)
-  const totalPlannedSeconds = chunks.reduce((sum, c) => sum + c.durationMinutes * 60, 0);
+  const totalPlannedSeconds = (template.chunks || []).reduce((sum, c) => sum + c.durationMinutes * 60, 0);
 
   // References for tracking background/drift transitions and keep-awake loop
   const lastTickRef = useRef<number>(Date.now());
@@ -140,21 +141,23 @@ export default function WorkoutPlayer({
     }
   }, [isPlaying, splashCountdown, isCompleted, activeChunkIndex, activeExerciseIndex, currentSet, template, currentChunk]);
 
-  // Initialize first chunk timer and reset background tracking refs
+  // Initialize first chunk timer, active chunks and reset background tracking refs
   useEffect(() => {
-    if (template.type === 'aerobic' && chunks.length > 0) {
+    if (template.type === 'aerobic' && template.chunks && template.chunks.length > 0) {
+      setCurrentWorkoutChunks([...template.chunks]);
       setActiveChunkIndex(0);
-      setTimeRemainingInChunk(chunks[0].durationMinutes * 60);
+      setTimeRemainingInChunk(template.chunks[0].durationMinutes * 60);
       setTotalSecondsElapsed(0);
       setIsPlannedFinished(false);
       lastAnnouncedChunkIndexRef.current = -1;
       lastBeepRemainingRef.current = -1;
       lastTickRef.current = Date.now();
     } else {
+      setCurrentWorkoutChunks([]);
       setTotalSecondsElapsed(0);
       setIsPlannedFinished(false);
     }
-  }, [template, chunks]);
+  }, [template]);
 
   // Portuguese Speech Synthesis helper
   const announceChunk = (chunk: WorkoutChunk, isTransition = false) => {
@@ -327,14 +330,30 @@ export default function WorkoutPlayer({
     }
 
     if (completed) {
-      if (!isPlannedFinished) {
-        if (!isMuted) {
-          playSuccessChime();
+      const originalChunks = template.chunks || [];
+      if (originalChunks.length > 0) {
+        if (!isPlannedFinished) {
+          if (!isMuted) {
+            playSuccessChime();
+          }
+          setIsPlannedFinished(true);
+          if (voiceMode && !isMuted && 'speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+            const text = "Você concluiu a meta planejada do treino! Iniciando fase de tempo extra.";
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'pt-BR';
+            window.speechSynthesis.speak(utterance);
+          }
         }
-        setIsPlannedFinished(true);
-        announceWorkoutComplete();
+        
+        const nextIndex = (chunks.length - originalChunks.length) % originalChunks.length;
+        const chunkToClone = originalChunks[nextIndex];
+        const newChunk: WorkoutChunk = {
+          ...chunkToClone,
+          id: `${chunkToClone.id}_loop_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`
+        };
+        setCurrentWorkoutChunks(prev => [...prev, newChunk]);
       }
-      setTimeRemainingInChunk(0);
       return;
     }
 
@@ -362,7 +381,7 @@ export default function WorkoutPlayer({
       lastAnnouncedChunkIndexRef.current = foundIndex;
     }
 
-  }, [totalSecondsElapsed, chunks, template.type, isCompleted, splashCountdown, isMuted, activeChunkIndex, isPlannedFinished]);
+  }, [totalSecondsElapsed, chunks, template.type, isCompleted, splashCountdown, isMuted, activeChunkIndex, isPlannedFinished, voiceMode]);
 
   // Handle Strength series completion
   const handleNextSet = () => {
@@ -546,32 +565,23 @@ export default function WorkoutPlayer({
 
                 {/* Text inside Ring (Matches "36% / 74 Dias" look but for timing) */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center space-y-1">
-                  {isPlannedFinished ? (
-                    <>
-                      <span className="text-4xl font-black text-[#CCFF00] tracking-tighter font-mono animate-pulse">
-                        +{formatTime(Math.max(0, totalSecondsElapsed - totalPlannedSeconds))}
+                  <span className="text-4xl font-black text-white tracking-tighter font-mono">
+                    {formatTime(timeRemainingInChunk)}
+                  </span>
+                  <span className="text-white/40 text-[10px] font-bold uppercase tracking-widest truncate max-w-[150px]">
+                    {currentChunk ? currentChunk.name : ''}
+                  </span>
+                  {currentChunk && (
+                    <div className="flex flex-col items-center gap-1.5 mt-1">
+                      <span className="bg-[#CCFF00]/10 text-[#CCFF00] text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-lg border border-[#CCFF00]/20 font-mono">
+                        {currentChunk.speedKmh} km/h
                       </span>
-                      <span className="text-emerald-400 text-[10px] font-bold uppercase tracking-widest bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full">
-                        Tempo Extra
-                      </span>
-                      <span className="bg-[#CCFF00]/10 text-[#CCFF00] text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-lg border border-[#CCFF00]/20 mt-2 font-mono">
-                        Livre
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-4xl font-black text-white tracking-tighter font-mono">
-                        {formatTime(timeRemainingInChunk)}
-                      </span>
-                      <span className="text-white/40 text-[10px] font-bold uppercase tracking-widest truncate max-w-[150px]">
-                        {currentChunk ? currentChunk.name : ''}
-                      </span>
-                      {currentChunk && (
-                        <span className="bg-[#CCFF00]/10 text-[#CCFF00] text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-lg border border-[#CCFF00]/20 mt-2 font-mono">
-                          {currentChunk.speedKmh} km/h
+                      {isPlannedFinished && (
+                        <span className="text-emerald-400 text-[8px] font-black uppercase tracking-widest bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full animate-pulse">
+                          Tempo Extra
                         </span>
                       )}
-                    </>
+                    </div>
                   )}
                 </div>
               </div>
@@ -740,7 +750,7 @@ export default function WorkoutPlayer({
           )}
 
           {/* TIMER CONTROL BUTTONS (Underneath Gauge) */}
-          {!isPlannedFinished && (
+          {(template.type === 'aerobic' || !isPlannedFinished) && (
             <>
               <div className="flex gap-4 items-center justify-center pt-4">
                 

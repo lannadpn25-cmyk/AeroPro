@@ -33,7 +33,8 @@ service cloud.firestore {
 
     // 2. Activities Validation Rules
     match /activities/{activityId} {
-      allow read: if isValidId(activityId) && (resource == null || resource.data.userId is string);
+      allow get: if isValidId(activityId);
+      allow list: if true;
       allow create: if isValidId(activityId) &&
         incoming().id == activityId &&
         incoming().name is string &&
@@ -49,7 +50,8 @@ service cloud.firestore {
 
     // 3. Templates Validation Rules
     match /templates/{templateId} {
-      allow read: if isValidId(templateId) && (resource == null || resource.data.userId is string);
+      allow get: if isValidId(templateId);
+      allow list: if true;
       allow create: if isValidId(templateId) &&
         incoming().id == templateId &&
         incoming().name is string &&
@@ -64,7 +66,8 @@ service cloud.firestore {
 
     // 4. Completed Workouts Validation Rules
     match /completedWorkouts/{workoutId} {
-      allow read: if isValidId(workoutId) && (resource == null || resource.data.userId is string);
+      allow get: if isValidId(workoutId);
+      allow list: if true;
       allow create: if isValidId(workoutId) &&
         incoming().id == workoutId &&
         incoming().userId is string &&
