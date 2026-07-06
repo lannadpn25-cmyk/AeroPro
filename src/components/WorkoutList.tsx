@@ -12,6 +12,8 @@ interface WorkoutListProps {
   activities: Activity[];
   templates: WorkoutTemplate[];
   onAddActivity: (activity: Activity) => void;
+  onEditActivity: (activity: Activity) => void;
+  onDeleteActivity: (id: string) => void;
   onAddTemplate: (template: WorkoutTemplate) => void;
   onEditTemplate: (template: WorkoutTemplate) => void;
   onDeleteTemplate: (id: string) => void;
@@ -39,6 +41,8 @@ export default function WorkoutList({
   activities, 
   templates, 
   onAddActivity, 
+  onEditActivity,
+  onDeleteActivity,
   onAddTemplate, 
   onEditTemplate,
   onDeleteTemplate,
@@ -48,6 +52,7 @@ export default function WorkoutList({
   // Navigation states for creating
   const [viewState, setViewState] = useState<'list' | 'create-activity' | 'create-template'>('list');
   const [editingTemplate, setEditingTemplate] = useState<WorkoutTemplate | null>(null);
+  const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
   
   // Custom states
   const [musicConfigs, setMusicConfigs] = useState<Record<string, boolean>>({});
@@ -120,7 +125,7 @@ export default function WorkoutList({
     const duplicated: WorkoutChunk = {
       ...chunk,
       id: `c-dup-${Date.now()}-${Math.random()}`,
-      name: `${chunk.name} (Cópia)`
+      name: chunk.name
     };
     setChunks(prev => {
       const idx = prev.findIndex(c => c.id === chunk.id);
@@ -175,7 +180,7 @@ export default function WorkoutList({
     const duplicated: StrengthExercise = {
       ...ex,
       id: `se-dup-${Date.now()}-${Math.random()}`,
-      name: `${ex.name} (Cópia)`
+      name: ex.name
     };
     setStrengthExs(prev => {
       const idx = prev.findIndex(se => se.id === ex.id);
@@ -272,21 +277,53 @@ export default function WorkoutList({
     e.preventDefault();
     if (!actName) return;
 
-    const activity: Activity = {
-      id: `act-${Date.now()}`,
-      name: actName,
-      type: actType,
-      icon: actIcon,
-      description: actDesc || 'Atividade física personalizada.',
-      isCustom: true
-    };
+    if (editingActivity) {
+      const updatedActivity: Activity = {
+        ...editingActivity,
+        name: actName,
+        type: actType,
+        icon: actIcon,
+        description: actDesc || 'Atividade física personalizada.'
+      };
+      onEditActivity(updatedActivity);
+    } else {
+      const activity: Activity = {
+        id: `act-${Date.now()}`,
+        name: actName,
+        type: actType,
+        icon: actIcon,
+        description: actDesc || 'Atividade física personalizada.',
+        isCustom: true
+      };
+      onAddActivity(activity);
+    }
 
-    onAddActivity(activity);
     setViewState('list');
+    setEditingActivity(null);
     
     // Clear state
     setActName('');
     setActDesc('');
+    setActType('aerobic');
+    setActIcon('Footprints');
+  };
+
+  const handleEditActivityClick = (activity: Activity) => {
+    setEditingActivity(activity);
+    setActName(activity.name);
+    setActType(activity.type);
+    setActIcon(activity.icon);
+    setActDesc(activity.description || '');
+    setViewState('create-activity');
+  };
+
+  const handleCancelActivityEdit = () => {
+    setEditingActivity(null);
+    setActName('');
+    setActDesc('');
+    setActType('aerobic');
+    setActIcon('Footprints');
+    setViewState('list');
   };
 
   const handleEditClick = (template: WorkoutTemplate) => {
@@ -530,93 +567,176 @@ export default function WorkoutList({
 
       {/* Create custom physical activity type */}
       {viewState === 'create-activity' && (
-        <div className="max-w-xl mx-auto bg-[#151518] border border-white/5 rounded-2xl p-6 space-y-6">
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={() => setViewState('list')}
-              className="p-2 hover:bg-white/5 text-white/40 hover:text-white rounded-lg transition"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
+        <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-12 gap-6">
+          
+          {/* Form Side - 7 columns on md */}
+          <div className="md:col-span-7 bg-[#151518] border border-white/5 rounded-2xl p-6 space-y-6">
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={handleCancelActivityEdit}
+                className="p-2 hover:bg-white/5 text-white/40 hover:text-white rounded-lg transition"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+              <div>
+                <h2 className="text-xl font-black uppercase font-display tracking-tight text-white italic">
+                  {editingActivity ? 'Editar Atividade' : 'Nova Atividade Física'}
+                </h2>
+                <p className="text-white/40 text-[10px] font-bold uppercase tracking-wider">
+                  {editingActivity ? 'Modifique os detalhes da atividade selecionada' : 'Adicione uma modalidade de exercício personalizada'}
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveActivity} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-white/40 text-[10px] font-bold uppercase tracking-wider block">Nome da Atividade</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: Pilates, Jump Aeróbico, Funcional de Areia"
+                  value={actName}
+                  onChange={e => setActName(e.target.value)}
+                  className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[#CCFF00]/50 text-sm font-mono"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-white/40 text-[10px] font-bold uppercase tracking-wider block">Foco / Tipo</label>
+                  <select
+                    value={actType}
+                    disabled={!!editingActivity} // Prevent changing type after creation if linked templates depend on it
+                    onChange={e => setActType(e.target.value as ActivityType)}
+                    className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[#CCFF00]/50 text-sm font-mono disabled:opacity-50"
+                  >
+                    <option value="aerobic">Aeróbico (Tempo/Distância)</option>
+                    <option value="strength">Força/Resistência (Séries/Reps)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-white/40 text-[10px] font-bold uppercase tracking-wider block">Ícone Ilustrativo</label>
+                  <div className="flex gap-2 flex-wrap bg-black/40 p-2 border border-white/10 rounded-lg">
+                    {AVAILABLE_ICONS.map(iconName => (
+                      <button
+                        key={iconName}
+                        type="button"
+                        onClick={() => setActIcon(iconName)}
+                        className={`p-2 rounded-lg transition ${
+                          actIcon === iconName 
+                            ? 'bg-[#CCFF00] text-black' 
+                            : 'bg-transparent text-white/40 hover:text-white'
+                        }`}
+                      >
+                        <ActivityIcon name={iconName} className="w-4 h-4" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-white/40 text-[10px] font-bold uppercase tracking-wider block">Descrição curta</label>
+                <textarea
+                  placeholder="Ex: Treino de alta intensidade na esteira ou ao ar livre..."
+                  value={actDesc}
+                  onChange={e => setActDesc(e.target.value)}
+                  className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[#CCFF00]/50 text-sm h-24 resize-none font-mono"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={handleCancelActivityEdit}
+                  className="flex-1 py-2 border border-white/10 text-white/40 hover:text-white rounded text-xs uppercase tracking-widest font-bold transition"
+                >
+                  {editingActivity ? 'Limpar / Cancelar' : 'Cancelar'}
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2 bg-[#CCFF00] text-black hover:bg-[#b3e000] rounded font-black text-xs uppercase tracking-widest transition shadow-[0_0_15px_rgba(204,255,0,0.15)]"
+                >
+                  {editingActivity ? 'Salvar Alterações' : 'Adicionar Atividade'}
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* List/Management Side - 5 columns on md */}
+          <div className="md:col-span-5 bg-[#151518] border border-white/5 rounded-2xl p-6 space-y-4">
             <div>
-              <h2 className="text-xl font-black uppercase font-display tracking-tight text-white italic">Nova Atividade Física</h2>
-              <p className="text-white/40 text-[10px] font-bold uppercase tracking-wider">Adicione uma modalidade de exercício personalizada</p>
+              <h3 className="text-sm font-black uppercase font-display tracking-tight text-white italic">Atividades Atuais</h3>
+              <p className="text-white/40 text-[9px] font-bold uppercase tracking-wider">Gerencie ou edite os nomes e ícones das modalidades</p>
+            </div>
+
+            <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
+              {activities.map(act => (
+                <div 
+                  key={act.id} 
+                  className={`flex justify-between items-center p-3 rounded-xl border transition ${
+                    editingActivity?.id === act.id 
+                      ? 'bg-[#CCFF00]/5 border-[#CCFF00]/40' 
+                      : 'bg-black/30 border-white/5 hover:border-white/10'
+                  }`}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`p-2 rounded-lg shrink-0 ${
+                      editingActivity?.id === act.id ? 'bg-[#CCFF00]/20 text-[#CCFF00]' : 'bg-white/5 text-[#CCFF00]'
+                    }`}>
+                      <ActivityIcon name={act.icon} className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="text-xs font-bold text-white truncate leading-tight">{act.name}</h4>
+                      <p className="text-[9px] text-white/40 font-mono uppercase">
+                        {act.type === 'aerobic' ? 'Aeróbico' : 'Força'} {act.isCustom && '• Personalizado'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1 shrink-0 ml-2">
+                    <button
+                      type="button"
+                      onClick={() => handleEditActivityClick(act)}
+                      className={`p-1.5 rounded transition ${
+                        editingActivity?.id === act.id 
+                          ? 'text-[#CCFF00] bg-white/5' 
+                          : 'text-white/40 hover:text-[#CCFF00] hover:bg-white/5'
+                      }`}
+                      title="Editar Atividade"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    {act.isCustom && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const linkedTemplatesCount = templates.filter(t => t.activityId === act.id).length;
+                          if (linkedTemplatesCount > 0) {
+                            if (!window.confirm(`Esta atividade possui ${linkedTemplatesCount} treino(s) vinculado(s). Se você excluí-la, esses treinos podem ficar sem uma categoria. Deseja mesmo excluir?`)) {
+                              return;
+                            }
+                          } else if (!window.confirm('Tem certeza de que deseja excluir esta atividade?')) {
+                            return;
+                          }
+                          onDeleteActivity(act.id);
+                          if (editingActivity?.id === act.id) {
+                            handleCancelActivityEdit();
+                          }
+                        }}
+                        className="p-1.5 text-white/40 hover:text-red-400 rounded hover:bg-white/5 transition"
+                        title="Excluir Atividade"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
-          <form onSubmit={handleSaveActivity} className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-white/40 text-[10px] font-bold uppercase tracking-wider block">Nome da Atividade</label>
-              <input
-                type="text"
-                required
-                placeholder="Ex: Pilates, Jump Aeróbico, Funcional de Areia"
-                value={actName}
-                onChange={e => setActName(e.target.value)}
-                className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[#CCFF00]/50 text-sm font-mono"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-white/40 text-[10px] font-bold uppercase tracking-wider block">Foco / Tipo</label>
-                <select
-                  value={actType}
-                  onChange={e => setActType(e.target.value as ActivityType)}
-                  className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[#CCFF00]/50 text-sm font-mono"
-                >
-                  <option value="aerobic">Aeróbico (Tempo/Distância)</option>
-                  <option value="strength">Força/Resistência (Séries/Reps)</option>
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-white/40 text-[10px] font-bold uppercase tracking-wider block">Ícone Ilustrativo</label>
-                <div className="flex gap-2 flex-wrap bg-black/40 p-2 border border-white/10 rounded-lg">
-                  {AVAILABLE_ICONS.map(iconName => (
-                    <button
-                      key={iconName}
-                      type="button"
-                      onClick={() => setActIcon(iconName)}
-                      className={`p-2 rounded-lg transition ${
-                        actIcon === iconName 
-                          ? 'bg-[#CCFF00] text-black' 
-                          : 'bg-transparent text-white/40 hover:text-white'
-                      }`}
-                    >
-                      <ActivityIcon name={iconName} className="w-4 h-4" />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-white/40 text-[10px] font-bold uppercase tracking-wider block">Descrição curta</label>
-              <textarea
-                placeholder="Ex: Treino de alta intensidade na esteira ou ao ar livre..."
-                value={actDesc}
-                onChange={e => setActDesc(e.target.value)}
-                className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[#CCFF00]/50 text-sm h-24 resize-none font-mono"
-              />
-            </div>
-
-            <div className="flex gap-3 pt-4">
-              <button
-                type="button"
-                onClick={() => setViewState('list')}
-                className="flex-1 py-2 border border-white/10 text-white/40 hover:text-white rounded text-xs uppercase tracking-widest font-bold transition"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                className="flex-1 py-2 bg-[#CCFF00] text-black hover:bg-[#b3e000] rounded font-black text-xs uppercase tracking-widest transition shadow-[0_0_15px_rgba(204,255,0,0.15)]"
-              >
-                Adicionar Atividade
-              </button>
-            </div>
-          </form>
         </div>
       )}
 

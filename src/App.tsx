@@ -148,6 +148,16 @@ export default function App() {
     saveActivities(updated);
   };
 
+  const handleEditActivity = (updatedActivity: Activity) => {
+    const updated = activities.map(a => a.id === updatedActivity.id ? updatedActivity : a);
+    saveActivities(updated);
+  };
+
+  const handleDeleteActivity = (id: string) => {
+    const updated = activities.filter(a => a.id !== id);
+    saveActivities(updated);
+  };
+
   const handleAddTemplate = (template: WorkoutTemplate) => {
     const updated = [...templates, template];
     saveTemplates(updated);
@@ -249,6 +259,8 @@ export default function App() {
                 activities={activities}
                 templates={templates}
                 onAddActivity={handleAddActivity}
+                onEditActivity={handleEditActivity}
+                onDeleteActivity={handleDeleteActivity}
                 onAddTemplate={handleAddTemplate}
                 onEditTemplate={handleEditTemplate}
                 onDeleteTemplate={handleDeleteTemplate}
