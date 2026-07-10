@@ -41,6 +41,16 @@ import {
 } from './utils/firebase';
 import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from 'firebase/auth';
 
+function deduplicateById<T extends { id: string }>(items: T[]): T[] {
+  const seen = new Set<string>();
+  return items.filter(item => {
+    if (!item || !item.id) return false;
+    if (seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  });
+}
+
 export default function App() {
   // Navigation tabs
   const [activeTab, setActiveTab] = useState<'exercicio' | 'resumo' | 'historico' | 'relatorio'>('exercicio');
@@ -168,7 +178,7 @@ export default function App() {
           await dbSaveActivity(act);
         }
       }
-      setActivities(finalActivities);
+      setActivities(deduplicateById(finalActivities));
       localStorage.setItem('aeroprogress_activities', JSON.stringify(finalActivities));
       if (onProgress) onProgress('activities', 'success');
 
@@ -188,7 +198,7 @@ export default function App() {
           await dbSaveTemplate(t);
         }
       }
-      setTemplates(finalTemplates);
+      setTemplates(deduplicateById(finalTemplates));
       localStorage.setItem('aeroprogress_templates', JSON.stringify(finalTemplates));
       if (onProgress) onProgress('templates', 'success');
 
@@ -210,7 +220,7 @@ export default function App() {
           await dbSaveCompletedWorkout(comp);
         }
       }
-      setCompletedWorkouts(finalCompleted);
+      setCompletedWorkouts(deduplicateById(finalCompleted));
       localStorage.setItem('aeroprogress_completed', JSON.stringify(finalCompleted));
       if (onProgress) onProgress('completed', 'success');
     } catch (err: any) {
@@ -234,12 +244,12 @@ export default function App() {
     const storedTemplates = localStorage.getItem('aeroprogress_templates');
     const storedCompleted = localStorage.getItem('aeroprogress_completed');
     const storedGoals = localStorage.getItem('aeroprogress_goals');
-    if (storedActivities) setActivities(JSON.parse(storedActivities));
+    if (storedActivities) setActivities(deduplicateById(JSON.parse(storedActivities)));
     else setActivities(DEFAULT_ACTIVITIES);
-    if (storedTemplates) setTemplates(JSON.parse(storedTemplates));
+    if (storedTemplates) setTemplates(deduplicateById(JSON.parse(storedTemplates)));
     else setTemplates(DEFAULT_TEMPLATES);
     if (storedGoals) setWeeklyGoals(JSON.parse(storedGoals));
-    if (storedCompleted) setCompletedWorkouts(JSON.parse(storedCompleted));
+    if (storedCompleted) setCompletedWorkouts(deduplicateById(JSON.parse(storedCompleted)));
   };
 
   // Auth listener and load flow
@@ -271,9 +281,9 @@ export default function App() {
             const merged = await dbMigrateDataToUser(currentUser.uid, localData);
 
             setWeeklyGoals(merged.weeklyGoals);
-            setActivities(merged.activities);
-            setTemplates(merged.templates);
-            setCompletedWorkouts(merged.completedWorkouts);
+            setActivities(deduplicateById(merged.activities));
+            setTemplates(deduplicateById(merged.templates));
+            setCompletedWorkouts(deduplicateById(merged.completedWorkouts));
 
             // Persist locally
             localStorage.setItem('aeroprogress_goals', JSON.stringify(merged.weeklyGoals));

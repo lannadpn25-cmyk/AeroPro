@@ -3,7 +3,7 @@ import { WorkoutTemplate, WorkoutChunk, StrengthExercise, CompletedWorkout } fro
 import { playBeep, playTransitionChime, playSuccessChime } from '../utils/audio';
 import { 
   Play, Pause, Square, ChevronRight, Activity, Heart, Milestone, Volume2, 
-  VolumeX, CheckCircle, Flame, Award, Clock, Sparkles, Send 
+  VolumeX, CheckCircle, Flame, Award, Clock, Sparkles, Send, Bell, BellOff
 } from 'lucide-react';
 
 interface WorkoutPlayerProps {
@@ -45,6 +45,86 @@ export default function WorkoutPlayer({
   // Audio/Voice states
   const [isMuted, setIsMuted] = useState(false);
   const [lastSpokenText, setLastSpokenText] = useState('');
+
+  // Notification states
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [notificationPermissionStatus, setNotificationPermissionStatus] = useState<string>('default');
+
+  // Check current notification permission on mount
+  useEffect(() => {
+    if ('Notification' in window) {
+      setNotificationPermissionStatus(Notification.permission);
+      setNotificationsEnabled(Notification.permission === 'granted');
+    }
+  }, []);
+
+  const triggerNotification = (title: string, options?: any) => {
+    if (!notificationsEnabled) return;
+    if ('Notification' in window && Notification.permission === 'granted') {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.ready.then((registration) => {
+          registration.showNotification(title, {
+            icon: '/icon.svg',
+            badge: '/icon.svg',
+            vibrate: [300, 100, 300],
+            silent: false,
+            ...options
+          } as any);
+        }).catch(() => {
+          try {
+            new Notification(title, options as any);
+          } catch (e) {
+            console.error("Standard notification failed:", e);
+          }
+        });
+      } else {
+        try {
+          new Notification(title, options as any);
+        } catch (e) {
+          console.error("Standard notification failed:", e);
+        }
+      }
+    }
+  };
+
+  const toggleNotifications = async () => {
+    if (!('Notification' in window)) {
+      alert("Seu navegador não suporta notificações do sistema.");
+      return;
+    }
+
+    if (Notification.permission === 'granted') {
+      // Toggle active status
+      const nextVal = !notificationsEnabled;
+      setNotificationsEnabled(nextVal);
+      if (nextVal) {
+        // Trigger a test notification
+        setTimeout(() => {
+          triggerNotification("Notificações de Treino Ativas! 🔔", {
+            body: "Você receberá alertas de transição de fase mesmo com a tela bloqueada.",
+            tag: 'aeroprogress-workout'
+          });
+        }, 100);
+      }
+    } else if (Notification.permission === 'denied') {
+      alert("As notificações estão bloqueadas nas configurações do seu navegador para este site. Por favor, libere-as manualmente nas configurações do navegador.");
+    } else {
+      // Request permission
+      const permission = await Notification.requestPermission();
+      setNotificationPermissionStatus(permission);
+      if (permission === 'granted') {
+        setNotificationsEnabled(true);
+        setTimeout(() => {
+          triggerNotification("Notificações Ativadas! 🔔", {
+            body: "Você receberá alertas de transição de fase mesmo com a tela bloqueada.",
+            tag: 'aeroprogress-workout'
+          });
+        }, 100);
+      } else {
+        setNotificationsEnabled(false);
+      }
+    }
+  };
 
   // Splash countdown state
   const [splashCountdown, setSplashCountdown] = useState<number | null>(3);
@@ -270,6 +350,18 @@ export default function WorkoutPlayer({
         // Once splash finishes, start the actual workout chunk announcement!
         if (template.type === 'aerobic' && chunks.length > 0) {
           announceChunk(chunks[0]);
+          triggerNotification(`Treino Iniciado! 🏃‍♂️`, {
+            body: `Seu treino "${template.name}" começou. Fase atual: ${chunks[0].name} (${chunks[0].speedKmh} km/h • ${chunks[0].durationMinutes} min)`,
+            tag: 'aeroprogress-workout'
+          });
+        } else if (template.type === 'strength') {
+          const exercises = template.strengthExercises || [];
+          if (exercises.length > 0) {
+            triggerNotification(`Treino de Força Iniciado! 🏋️‍♂️`, {
+              body: `Seu treino "${template.name}" começou. Primeiro exercício: ${exercises[0].name} (${exercises[0].series}x${exercises[0].reps})`,
+              tag: 'aeroprogress-workout'
+            });
+          }
         }
       }
     }, 1000);
@@ -344,6 +436,11 @@ export default function WorkoutPlayer({
             utterance.lang = 'pt-BR';
             window.speechSynthesis.speak(utterance);
           }
+          triggerNotification(`Meta Planejada Concluída! 🎉`, {
+            body: `Excelente! Você concluiu a meta planejada de ${template.targetValue} min. Tempo extra iniciado.`,
+            tag: 'aeroprogress-workout',
+            renotify: true
+          });
         }
         
         const nextIndex = (chunks.length - originalChunks.length) % originalChunks.length;
@@ -379,6 +476,15 @@ export default function WorkoutPlayer({
       const isTransition = lastAnnouncedChunkIndexRef.current !== -1;
       announceChunk(chunks[foundIndex], isTransition);
       lastAnnouncedChunkIndexRef.current = foundIndex;
+
+      if (isTransition) {
+        const nextChunk = chunks[foundIndex];
+        triggerNotification(`Nova Fase: ${nextChunk.name} ⚡`, {
+          body: `Velocidade sugerida: ${nextChunk.speedKmh} km/h • Duração: ${nextChunk.durationMinutes} min`,
+          tag: 'aeroprogress-workout',
+          renotify: true
+        });
+      }
     }
 
   }, [totalSecondsElapsed, chunks, template.type, isCompleted, splashCountdown, isMuted, activeChunkIndex, isPlannedFinished, voiceMode]);
@@ -391,14 +497,28 @@ export default function WorkoutPlayer({
 
     if (currentSet < currentEx.series) {
       // Move to next set
-      setCurrentSet(prev => prev + 1);
+      const nextSetNum = currentSet + 1;
+      setCurrentSet(nextSetNum);
       if (!isMuted) playBeep(1000, 0.15);
+      
+      triggerNotification(`Série Concluída: ${currentEx.name}`, {
+        body: `Próxima série: Série ${nextSetNum} de ${currentEx.series}`,
+        tag: 'aeroprogress-workout',
+        silent: true
+      });
     } else {
       // Move to next exercise
       if (activeExerciseIndex < exercises.length - 1) {
+        const nextEx = exercises[activeExerciseIndex + 1];
         setActiveExerciseIndex(prev => prev + 1);
         setCurrentSet(1);
         if (!isMuted) playTransitionChime();
+        
+        triggerNotification(`Próximo Exercício: ${nextEx.name} 💪`, {
+          body: `Meta: ${nextEx.series} séries de ${nextEx.reps} reps ${nextEx.weightKg ? '• ' + nextEx.weightKg + ' kg' : ''}`,
+          tag: 'aeroprogress-workout',
+          renotify: true
+        });
       } else {
         // Last exercise and last set done!
         if (!isPlannedFinished) {
@@ -407,6 +527,12 @@ export default function WorkoutPlayer({
           }
           setIsPlannedFinished(true);
           announceWorkoutComplete();
+          
+          triggerNotification(`Treino de Força Concluído! 🎉`, {
+            body: `Excelente! Você completou todas as séries de "${template.name}".`,
+            tag: 'aeroprogress-workout',
+            renotify: true
+          });
         }
       }
     }
@@ -424,6 +550,12 @@ export default function WorkoutPlayer({
     const plannedDuration = template.type === 'aerobic' 
       ? chunks.reduce((sum, c) => sum + c.durationMinutes, 0)
       : template.targetValue;
+
+    triggerNotification(`Treino Registrado! 💾`, {
+      body: `"${template.name}" concluído com sucesso: ${actualDuration} min de atividade registrados.`,
+      tag: 'aeroprogress-workout',
+      renotify: true
+    });
 
     onSaveSession({
       templateId: template.id,
@@ -497,13 +629,27 @@ export default function WorkoutPlayer({
               </div>
             </div>
 
-            <button
-              onClick={() => setIsMuted(!isMuted)}
-              className="p-1.5 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white rounded-lg border border-white/10 transition"
-              title={isMuted ? "Ativar áudio" : "Mutar áudio"}
-            >
-              {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4 text-[#CCFF00]" />}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={toggleNotifications}
+                className={`p-1.5 rounded-lg border transition ${
+                  notificationsEnabled
+                    ? 'bg-[#CCFF00]/10 border-[#CCFF00]/20 text-[#CCFF00] hover:bg-[#CCFF00]/20'
+                    : 'bg-white/5 border-white/10 text-white/40 hover:text-white'
+                }`}
+                title={notificationsEnabled ? "Notificações do sistema ativadas" : "Ativar notificações do sistema"}
+              >
+                {notificationsEnabled ? <Bell className="w-4.5 h-4.5" /> : <BellOff className="w-4.5 h-4.5" />}
+              </button>
+
+              <button
+                onClick={() => setIsMuted(!isMuted)}
+                className="p-1.5 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white rounded-lg border border-white/10 transition"
+                title={isMuted ? "Ativar áudio" : "Mutar áudio"}
+              >
+                {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4 text-[#CCFF00]" />}
+              </button>
+            </div>
           </div>
 
           {/* Unified High-Contrast Upper Stats Card */}

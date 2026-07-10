@@ -73,3 +73,23 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
+
+// Notification Click Event: open or focus on PWA client
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // If a window client is already open, focus it
+      for (const client of clientList) {
+        if (client.url === '/' || client.url.includes(self.location.origin)) {
+          return client.focus();
+        }
+      }
+      // Otherwise, open a new window
+      if (self.clients.openWindow) {
+        return self.clients.openWindow('/');
+      }
+    })
+  );
+});

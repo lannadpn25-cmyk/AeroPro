@@ -172,9 +172,14 @@ export async function dbFetchActivities(): Promise<any[] | null> {
     const q = query(collection(db, ACTIVITIES_COLL), where('userId', '==', uid));
     const querySnapshot = await getDocs(q);
     const list: any[] = [];
+    const seenIds = new Set<string>();
     querySnapshot.forEach((doc) => {
       const data = doc.data();
-      list.push({ ...data, id: data.id || doc.id.replace(`${uid}_`, '') });
+      const id = data.id || doc.id.replace(`${uid}_`, '');
+      if (!seenIds.has(id)) {
+        seenIds.add(id);
+        list.push({ ...data, id });
+      }
     });
     return list.length > 0 ? list : null;
   } catch (error) {
@@ -227,9 +232,14 @@ export async function dbFetchTemplates(): Promise<any[] | null> {
     const q = query(collection(db, TEMPLATES_COLL), where('userId', '==', uid));
     const querySnapshot = await getDocs(q);
     const list: any[] = [];
+    const seenIds = new Set<string>();
     querySnapshot.forEach((doc) => {
       const data = doc.data();
-      list.push({ ...data, id: data.id || doc.id.replace(`${uid}_`, '') });
+      const id = data.id || doc.id.replace(`${uid}_`, '');
+      if (!seenIds.has(id)) {
+        seenIds.add(id);
+        list.push({ ...data, id });
+      }
     });
     return list.length > 0 ? list : null;
   } catch (error) {
@@ -282,9 +292,14 @@ export async function dbFetchCompletedWorkouts(): Promise<any[] | null> {
     const q = query(collection(db, COMPLETED_COLL), where('userId', '==', uid));
     const querySnapshot = await getDocs(q);
     const list: any[] = [];
+    const seenIds = new Set<string>();
     querySnapshot.forEach((doc) => {
       const data = doc.data();
-      list.push({ ...data, id: data.id || doc.id.replace(`${uid}_`, '') });
+      const id = data.id || doc.id.replace(`${uid}_`, '');
+      if (!seenIds.has(id)) {
+        seenIds.add(id);
+        list.push({ ...data, id });
+      }
     });
     // Sort descending by date
     return list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -409,23 +424,38 @@ export async function dbMigrateDataToUser(
 
     const actSnap = await getDocs(query(collection(db, ACTIVITIES_COLL), where('userId', '==', newUid)));
     const finalActivities: any[] = [];
+    const seenAct = new Set<string>();
     actSnap.forEach((doc) => {
       const data = doc.data();
-      finalActivities.push({ ...data, id: data.id || doc.id.replace(`${newUid}_`, '') });
+      const id = data.id || doc.id.replace(`${newUid}_`, '');
+      if (!seenAct.has(id)) {
+        seenAct.add(id);
+        finalActivities.push({ ...data, id });
+      }
     });
 
     const tempSnap = await getDocs(query(collection(db, TEMPLATES_COLL), where('userId', '==', newUid)));
     const finalTemplates: any[] = [];
+    const seenTemp = new Set<string>();
     tempSnap.forEach((doc) => {
       const data = doc.data();
-      finalTemplates.push({ ...data, id: data.id || doc.id.replace(`${newUid}_`, '') });
+      const id = data.id || doc.id.replace(`${newUid}_`, '');
+      if (!seenTemp.has(id)) {
+        seenTemp.add(id);
+        finalTemplates.push({ ...data, id });
+      }
     });
 
     const compSnap = await getDocs(query(collection(db, COMPLETED_COLL), where('userId', '==', newUid)));
     const finalCompleted: any[] = [];
+    const seenComp = new Set<string>();
     compSnap.forEach((doc) => {
       const data = doc.data();
-      finalCompleted.push({ ...data, id: data.id || doc.id.replace(`${newUid}_`, '') });
+      const id = data.id || doc.id.replace(`${newUid}_`, '');
+      if (!seenComp.has(id)) {
+        seenComp.add(id);
+        finalCompleted.push({ ...data, id });
+      }
     });
 
     return {
